@@ -61,35 +61,46 @@ export default function LessonPlayer() {
   useEffect(() => {
     const fetchLessonData = async () => {
       setIsLoading(true);
-      try {
-        const { data: lessonData } = await api.get(`/lessons/${id}`);
-        setLesson(lessonData.lesson);
 
+      try {
+        // 1. get lesson
+        const { data: lessonRes } = await api.get(`/lessons/${id}`);
+        //  {{URL}}/api/lessons/{{LESSON_ID}}
+        const lesson = lessonRes.data;
+
+        setLesson(lesson);
+
+        const courseId = lesson?.course?._id;
+
+        // 2. باقي الداتا
         const [courseRes, lessonsRes, enrollmentRes, commentsRes] =
           await Promise.all([
-            api.get(`/courses/${lessonData.lesson.courseId}`),
-            api.get(`/lessons/course/${lessonData.lesson.courseId}`),
-            api.get(`/enrollments/course/${lessonData.lesson.courseId}`),
-            api.get(`/comments/lesson/${id}`),
+            api.get(`/courses/${courseId}`),
+            // courses/{{COURSE_ID}}
+            api.get(`/courses/${courseId}/lessons`),
+            // /courses/{{COURSE_ID}}/lessons
+            api.get(`/enrollments/my?page=1&limit=5`),
+            // enrollments/my?page=1&limit=5
+
+            api.get(`/lessons/${id}/comments`),
+            //      /lessons/{{LESSON_ID}}/comments
           ]);
 
-        setCourse(courseRes.data.course);
-        setLessons(lessonsRes.data.lessons);
+        setCourse(courseRes.data.data);
+        setLessons(lessonsRes.data.data);
         setEnrollment(enrollmentRes.data.enrollment);
-        setComments(commentsRes.data.comments);
+        setComments(commentsRes.data.data);
 
-        // Mark lesson as completed if not already
+        // 3. mark as completed
         if (
           enrollmentRes.data.enrollment &&
           !enrollmentRes.data.enrollment.completedLessons.includes(id!)
         ) {
           await api.patch(
             `/enrollments/${enrollmentRes.data.enrollment._id}/progress`,
-            {
-              lessonId: id,
-            },
+            { lessonId: id },
           );
-          // Update local state
+
           setEnrollment({
             ...enrollmentRes.data.enrollment,
             completedLessons: [
