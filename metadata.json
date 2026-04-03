@@ -1,0 +1,8 @@
+{
+  "name": "EduFlow - Modern EdTech Platform",
+  "description": "A production-ready EdTech platform for students and instructors with course management, progress tracking, and interactive lessons.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
