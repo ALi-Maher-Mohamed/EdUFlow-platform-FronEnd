@@ -1,28 +1,32 @@
-import { Outlet, Link, useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../store/authStore';
-import { Button } from './ui/button';
-import { 
-  BookOpen, 
-  LayoutDashboard, 
-  LogOut, 
-  Search, 
+import { Outlet, Link, useNavigate } from "react-router-dom";
+import { useAuthStore } from "../store/authStore";
+import { Button } from "../../components/ui/button";
+import {
+  BookOpen,
+  LayoutDashboard,
+  LogOut,
+  Search,
   User as UserIcon,
   Moon,
   Sun,
   Menu,
-  X
-} from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
-  DropdownMenuSeparator, 
-  DropdownMenuTrigger 
-} from './ui/dropdown-menu';
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { Input } from './ui/input';
+  X,
+} from "lucide-react";
+import { useState, useEffect } from "react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "../../components/ui/avatar";
+import { Input } from "../../components/ui/input";
 
 export default function Navbar() {
   const { user, logout, isAuthenticated } = useAuthStore();
@@ -32,26 +36,29 @@ export default function Navbar() {
 
   useEffect(() => {
     if (isDark) {
-      document.documentElement.classList.add('dark');
+      document.documentElement.classList.add("dark");
     } else {
-      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.remove("dark");
     }
   }, [isDark]);
 
   const handleLogout = () => {
     logout();
-    navigate('/auth');
+    navigate("/auth");
   };
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <div className="flex items-center gap-8">
-          <Link to="/" className="flex items-center gap-2 font-bold text-xl text-primary">
+          <Link
+            to="/"
+            className="flex items-center gap-2 font-bold text-xl text-primary"
+          >
             <BookOpen className="h-6 w-6" />
             <span>EduFlow</span>
           </Link>
-          
+
           <div className="hidden md:flex relative w-64">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Search courses..." className="pl-8" />
@@ -59,47 +66,76 @@ export default function Navbar() {
         </div>
 
         <div className="hidden md:flex items-center gap-4">
-          <Link to="/courses" className="text-sm font-medium hover:text-primary transition-colors">
+          <Link
+            to="/courses"
+            className="text-sm font-medium hover:text-primary transition-colors"
+          >
             Browse
           </Link>
-          
-          <Button variant="ghost" size="icon" onClick={() => setIsDark(!isDark)}>
-            {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsDark(!isDark)}
+          >
+            {isDark ? (
+              <Sun className="h-5 w-5" />
+            ) : (
+              <Moon className="h-5 w-5" />
+            )}
           </Button>
 
           {isAuthenticated ? (
             <div className="flex items-center gap-4">
-              <Link to={user?.role === 'instructor' ? '/instructor' : '/dashboard'}>
+              <Link
+                to={user?.role === "instructor" ? "/instructor" : "/dashboard"}
+              >
                 <Button variant="ghost" size="sm" className="gap-2">
                   <LayoutDashboard className="h-4 w-4" />
                   Dashboard
                 </Button>
               </Link>
-              
+
               <DropdownMenu>
-                <DropdownMenuTrigger>
-                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                    <Avatar className="h-8 w-8 border">
-                      <AvatarImage src={user?.avatar} alt={user?.name} />
-                      <AvatarFallback>{user?.name?.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      className="relative h-8 w-8 rounded-full"
+                    >
+                      <Avatar className="h-8 w-8 border">
+                        <AvatarImage src={user?.avatar} alt={user?.name} />
+                        <AvatarFallback>{user?.name?.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  }
+                />
+
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">{user?.name}</p>
-                      <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
+                      <p className="text-sm font-medium leading-none">
+                        {user?.name}
+                      </p>
+                      <p className="text-xs leading-none text-muted-foreground">
+                        {user?.email}
+                      </p>
                     </div>
                   </DropdownMenuLabel>
+
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate('/profile')}>
+
+                  <DropdownMenuItem onClick={() => navigate("/profile")}>
                     <UserIcon className="mr-2 h-4 w-4" />
-                    Profile
+                    <span>Profile</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="text-destructive focus:text-destructive"
+                  >
                     <LogOut className="mr-2 h-4 w-4" />
-                    Logout
+                    <span>Logout</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -107,7 +143,9 @@ export default function Navbar() {
           ) : (
             <div className="flex items-center gap-2">
               <Link to="/auth">
-                <Button variant="ghost" size="sm">Login</Button>
+                <Button variant="ghost" size="sm">
+                  Login
+                </Button>
               </Link>
               <Link to="/auth?tab=register">
                 <Button size="sm">Get Started</Button>
@@ -117,11 +155,27 @@ export default function Navbar() {
         </div>
 
         <div className="md:hidden flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => setIsDark(!isDark)}>
-            {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsDark(!isDark)}
+          >
+            {isDark ? (
+              <Sun className="h-5 w-5" />
+            ) : (
+              <Moon className="h-5 w-5" />
+            )}
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-            {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
+            {isMenuOpen ? (
+              <X className="h-6 w-6" />
+            ) : (
+              <Menu className="h-6 w-6" />
+            )}
           </Button>
         </div>
       </div>
@@ -133,19 +187,28 @@ export default function Navbar() {
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Search courses..." className="pl-8 w-full" />
           </div>
-          <Link to="/courses" className="block text-sm font-medium py-2" onClick={() => setIsMenuOpen(false)}>
+          <Link
+            to="/courses"
+            className="block text-sm font-medium py-2"
+            onClick={() => setIsMenuOpen(false)}
+          >
             Browse Courses
           </Link>
           {isAuthenticated ? (
             <>
-              <Link 
-                to={user?.role === 'instructor' ? '/instructor' : '/dashboard'} 
+              <Link
+                to={user?.role === "instructor" ? "/instructor" : "/dashboard"}
                 className="block text-sm font-medium py-2"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Dashboard
               </Link>
-              <Button variant="destructive" size="sm" className="w-full justify-start gap-2" onClick={handleLogout}>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="w-full justify-start gap-2"
+                onClick={handleLogout}
+              >
                 <LogOut className="h-4 w-4" />
                 Logout
               </Button>
@@ -153,9 +216,14 @@ export default function Navbar() {
           ) : (
             <div className="grid grid-cols-2 gap-2">
               <Link to="/auth" onClick={() => setIsMenuOpen(false)}>
-                <Button variant="outline" className="w-full">Login</Button>
+                <Button variant="outline" className="w-full">
+                  Login
+                </Button>
               </Link>
-              <Link to="/auth?tab=register" onClick={() => setIsMenuOpen(false)}>
+              <Link
+                to="/auth?tab=register"
+                onClick={() => setIsMenuOpen(false)}
+              >
                 <Button className="w-full">Register</Button>
               </Link>
             </div>

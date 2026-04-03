@@ -1,44 +1,60 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Badge } from '../components/ui/badge';
-import { Skeleton } from '../components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { ScrollArea } from '../components/ui/scroll-area';
-import { Separator } from '../components/ui/separator';
-import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
-import { Input } from '../components/ui/input';
-import { 
-  PlayCircle, 
-  CheckCircle2, 
-  ChevronLeft, 
-  ChevronRight, 
-  MessageSquare, 
-  Info, 
+import { useState, useEffect } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardFooter,
+} from "../../components/ui/card";
+import { Button } from "../../components/ui/button";
+import { Badge } from "../../components/ui/badge";
+import { Skeleton } from "../../components/ui/skeleton";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../../components/ui/tabs";
+import { ScrollArea } from "../../components/ui/scroll-area";
+import { Separator } from "../../components/ui/separator";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "../../components/ui/avatar";
+import { Input } from "../../components/ui/input";
+import {
+  PlayCircle,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  MessageSquare,
+  Info,
   FileText,
   ArrowLeft,
   Loader2,
-  Send
-} from 'lucide-react';
-import api from '../lib/api';
-import { Lesson, Course, Comment, Enrollment } from '../types';
-import { useAuthStore } from '../store/authStore';
-import { toast } from 'sonner';
-import ReactMarkdown from 'react-markdown';
-import { formatDistanceToNow } from 'date-fns';
+  Send,
+} from "lucide-react";
+import api from "../lib/api";
+import { Lesson, Course, Comment, Enrollment } from "../types";
+import { useAuthStore } from "../store/authStore";
+import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
+import { formatDistanceToNow } from "date-fns";
 
 export default function LessonPlayer() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  
+
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [course, setCourse] = useState<Course | null>(null);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
-  const [newComment, setNewComment] = useState('');
+  const [newComment, setNewComment] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -48,34 +64,44 @@ export default function LessonPlayer() {
       try {
         const { data: lessonData } = await api.get(`/lessons/${id}`);
         setLesson(lessonData.lesson);
-        
-        const [courseRes, lessonsRes, enrollmentRes, commentsRes] = await Promise.all([
-          api.get(`/courses/${lessonData.lesson.courseId}`),
-          api.get(`/lessons/course/${lessonData.lesson.courseId}`),
-          api.get(`/enrollments/course/${lessonData.lesson.courseId}`),
-          api.get(`/comments/lesson/${id}`)
-        ]);
-        
+
+        const [courseRes, lessonsRes, enrollmentRes, commentsRes] =
+          await Promise.all([
+            api.get(`/courses/${lessonData.lesson.courseId}`),
+            api.get(`/lessons/course/${lessonData.lesson.courseId}`),
+            api.get(`/enrollments/course/${lessonData.lesson.courseId}`),
+            api.get(`/comments/lesson/${id}`),
+          ]);
+
         setCourse(courseRes.data.course);
         setLessons(lessonsRes.data.lessons);
         setEnrollment(enrollmentRes.data.enrollment);
         setComments(commentsRes.data.comments);
-        
+
         // Mark lesson as completed if not already
-        if (enrollmentRes.data.enrollment && !enrollmentRes.data.enrollment.completedLessons.includes(id!)) {
-          await api.patch(`/enrollments/${enrollmentRes.data.enrollment._id}/progress`, {
-            lessonId: id
-          });
+        if (
+          enrollmentRes.data.enrollment &&
+          !enrollmentRes.data.enrollment.completedLessons.includes(id!)
+        ) {
+          await api.patch(
+            `/enrollments/${enrollmentRes.data.enrollment._id}/progress`,
+            {
+              lessonId: id,
+            },
+          );
           // Update local state
           setEnrollment({
             ...enrollmentRes.data.enrollment,
-            completedLessons: [...enrollmentRes.data.enrollment.completedLessons, id!]
+            completedLessons: [
+              ...enrollmentRes.data.enrollment.completedLessons,
+              id!,
+            ],
           });
         }
       } catch (error) {
-        console.error('Failed to fetch lesson data', error);
-        toast.error('Access denied or lesson not found');
-        navigate('/dashboard');
+        console.error("Failed to fetch lesson data", error);
+        toast.error("Access denied or lesson not found");
+        navigate("/dashboard");
       } finally {
         setIsLoading(false);
       }
@@ -87,15 +113,18 @@ export default function LessonPlayer() {
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim()) return;
-    
+
     setIsSubmitting(true);
     try {
-      const { data } = await api.post('/comments', { lessonId: id, text: newComment });
+      const { data } = await api.post("/comments", {
+        lessonId: id,
+        text: newComment,
+      });
       setComments([data.comment, ...comments]);
-      setNewComment('');
-      toast.success('Comment posted');
+      setNewComment("");
+      toast.success("Comment posted");
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to post comment');
+      toast.error(error.response?.data?.message || "Failed to post comment");
     } finally {
       setIsSubmitting(false);
     }
@@ -120,7 +149,7 @@ export default function LessonPlayer() {
 
   if (!lesson || !course) return null;
 
-  const currentLessonIndex = lessons.findIndex(l => l._id === id);
+  const currentLessonIndex = lessons.findIndex((l) => l._id === id);
   const prevLesson = lessons[currentLessonIndex - 1];
   const nextLesson = lessons[currentLessonIndex + 1];
 
@@ -132,16 +161,18 @@ export default function LessonPlayer() {
           {/* Video Player Placeholder */}
           <div className="aspect-video bg-black rounded-xl overflow-hidden relative shadow-2xl">
             {lesson.videoUrl ? (
-              <iframe 
-                src={lesson.videoUrl} 
-                className="w-full h-full" 
-                allowFullScreen 
+              <iframe
+                src={lesson.videoUrl}
+                className="w-full h-full"
+                allowFullScreen
                 title={lesson.title}
               />
             ) : (
               <div className="absolute inset-0 flex flex-col items-center justify-center text-white space-y-4">
                 <PlayCircle className="h-20 w-20 opacity-20" />
-                <p className="text-xl font-medium opacity-50">No video available for this lesson</p>
+                <p className="text-xl font-medium opacity-50">
+                  No video available for this lesson
+                </p>
               </div>
             )}
           </div>
@@ -149,20 +180,28 @@ export default function LessonPlayer() {
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <h1 className="text-2xl font-bold">{lesson.title}</h1>
-              <p className="text-sm text-muted-foreground">From <Link to={`/courses/${course._id}`} className="text-primary hover:underline">{course.title}</Link></p>
+              <p className="text-sm text-muted-foreground">
+                From{" "}
+                <Link
+                  to={`/courses/${course._id}`}
+                  className="text-primary hover:underline"
+                >
+                  {course.title}
+                </Link>
+              </p>
             </div>
             <div className="flex items-center gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 disabled={!prevLesson}
                 onClick={() => navigate(`/lessons/${prevLesson._id}`)}
               >
                 <ChevronLeft className="h-4 w-4 mr-1" /> Previous
               </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 disabled={!nextLesson}
                 onClick={() => navigate(`/lessons/${nextLesson._id}`)}
               >
@@ -173,20 +212,21 @@ export default function LessonPlayer() {
 
           <Tabs defaultValue="content" className="w-full">
             <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
-              <TabsTrigger 
-                value="content" 
+              <TabsTrigger
+                value="content"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3"
               >
                 <FileText className="h-4 w-4 mr-2" /> Lesson Content
               </TabsTrigger>
-              <TabsTrigger 
-                value="comments" 
+              <TabsTrigger
+                value="comments"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3"
               >
-                <MessageSquare className="h-4 w-4 mr-2" /> Comments ({comments.length})
+                <MessageSquare className="h-4 w-4 mr-2" /> Comments (
+                {comments.length})
               </TabsTrigger>
-              <TabsTrigger 
-                value="about" 
+              <TabsTrigger
+                value="about"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3"
               >
                 <Info className="h-4 w-4 mr-2" /> About
@@ -207,14 +247,25 @@ export default function LessonPlayer() {
                   <AvatarImage src={user?.avatar} />
                   <AvatarFallback>{user?.name.charAt(0)}</AvatarFallback>
                 </Avatar>
-                <form onSubmit={handleCommentSubmit} className="flex-1 flex gap-2">
-                  <Input 
-                    placeholder="Add a comment..." 
+                <form
+                  onSubmit={handleCommentSubmit}
+                  className="flex-1 flex gap-2"
+                >
+                  <Input
+                    placeholder="Add a comment..."
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
                   />
-                  <Button type="submit" size="icon" disabled={isSubmitting || !newComment.trim()}>
-                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  <Button
+                    type="submit"
+                    size="icon"
+                    disabled={isSubmitting || !newComment.trim()}
+                  >
+                    {isSubmitting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
                   </Button>
                 </form>
               </div>
@@ -224,11 +275,15 @@ export default function LessonPlayer() {
                   <div key={comment._id} className="flex gap-4">
                     <Avatar className="h-10 w-10 border">
                       <AvatarImage src={comment.user.avatar} />
-                      <AvatarFallback>{comment.user.name.charAt(0)}</AvatarFallback>
+                      <AvatarFallback>
+                        {comment.user.name.charAt(0)}
+                      </AvatarFallback>
                     </Avatar>
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm">{comment.user.name}</span>
+                        <span className="font-bold text-sm">
+                          {comment.user.name}
+                        </span>
                         <span className="text-xs text-muted-foreground">
                           {formatDistanceToNow(new Date(comment.createdAt))} ago
                         </span>
@@ -244,7 +299,9 @@ export default function LessonPlayer() {
               <div className="space-y-6">
                 <div className="space-y-2">
                   <h3 className="font-bold">Course Overview</h3>
-                  <p className="text-sm text-muted-foreground">{course.description}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {course.description}
+                  </p>
                 </div>
                 <Separator />
                 <div className="flex items-center gap-4">
@@ -255,7 +312,9 @@ export default function LessonPlayer() {
                   </Avatar>
                   <div>
                     <p className="font-bold">{course.instructor.name}</p>
-                    <p className="text-xs text-muted-foreground">Course Instructor</p>
+                    <p className="text-xs text-muted-foreground">
+                      Course Instructor
+                    </p>
                   </div>
                 </div>
               </div>
@@ -269,21 +328,26 @@ export default function LessonPlayer() {
             <CardHeader className="p-4 border-b">
               <CardTitle className="text-lg">Course Content</CardTitle>
               <div className="flex items-center justify-between text-xs text-muted-foreground mt-2">
-                <span>{enrollment?.completedLessons.length} / {lessons.length} completed</span>
+                <span>
+                  {enrollment?.completedLessons.length} / {lessons.length}{" "}
+                  completed
+                </span>
                 <span>{Math.round(enrollment?.progress || 0)}%</span>
               </div>
             </CardHeader>
             <ScrollArea className="flex-1">
               <div className="p-0">
                 {lessons.map((l, index) => {
-                  const isCompleted = enrollment?.completedLessons.includes(l._id);
+                  const isCompleted = enrollment?.completedLessons.includes(
+                    l._id,
+                  );
                   const isActive = l._id === id;
-                  
+
                   return (
-                    <Link 
-                      key={l._id} 
+                    <Link
+                      key={l._id}
                       to={`/lessons/${l._id}`}
-                      className={`flex items-start gap-3 p-4 hover:bg-muted/50 transition-colors border-b last:border-b-0 ${isActive ? 'bg-primary/5 border-l-4 border-l-primary' : ''}`}
+                      className={`flex items-start gap-3 p-4 hover:bg-muted/50 transition-colors border-b last:border-b-0 ${isActive ? "bg-primary/5 border-l-4 border-l-primary" : ""}`}
                     >
                       <div className="mt-0.5">
                         {isCompleted ? (
@@ -295,7 +359,9 @@ export default function LessonPlayer() {
                         )}
                       </div>
                       <div className="space-y-1">
-                        <p className={`text-sm font-medium leading-tight ${isActive ? 'text-primary' : ''}`}>
+                        <p
+                          className={`text-sm font-medium leading-tight ${isActive ? "text-primary" : ""}`}
+                        >
                           {l.title}
                         </p>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">

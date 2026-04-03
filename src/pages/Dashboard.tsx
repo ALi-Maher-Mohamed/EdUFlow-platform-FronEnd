@@ -1,23 +1,35 @@
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Badge } from '../components/ui/badge';
-import { Skeleton } from '../components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Progress } from '../components/ui/progress';
-import { 
-  BookOpen, 
-  Clock, 
-  PlayCircle, 
-  Trophy, 
+import { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardFooter,
+} from "../../components/ui/card";
+import { Button } from "../../components/ui/button";
+import { Badge } from "../../components/ui/badge";
+import { Skeleton } from "../../components/ui/skeleton";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../../components/ui/tabs";
+import { Progress } from "../../components/ui/progress";
+import {
+  BookOpen,
+  Clock,
+  PlayCircle,
+  Trophy,
   ArrowRight,
   LayoutDashboard,
-  GraduationCap
-} from 'lucide-react';
-import api from '../lib/api';
-import { Enrollment, Course } from '../types';
-import { useAuthStore } from '../store/authStore';
-import { Link } from 'react-router-dom';
+  GraduationCap,
+} from "lucide-react";
+import api from "../lib/api";
+import { Enrollment, Course } from "../types";
+import { useAuthStore } from "../store/authStore";
+import { Link } from "react-router-dom";
 
 export default function Dashboard() {
   const { user } = useAuthStore();
@@ -30,13 +42,13 @@ export default function Dashboard() {
       setIsLoading(true);
       try {
         const [enrollmentsRes, coursesRes] = await Promise.all([
-          api.get('/enrollments/my-learning'),
-          api.get('/courses?limit=3&sort=-rating')
+          api.get("/enrollments/my?page=1&limit=5"),
+          api.get("/courses?limit=3&sort=-rating"),
         ]);
-        setEnrollments(enrollmentsRes.data.enrollments);
-        setRecommended(coursesRes.data.courses);
+        setEnrollments(enrollmentsRes.data.data);
+        setRecommended(coursesRes.data.data);
       } catch (error) {
-        console.error('Failed to fetch dashboard data', error);
+        console.error("Failed to fetch dashboard data", error);
       } finally {
         setIsLoading(false);
       }
@@ -59,15 +71,19 @@ export default function Dashboard() {
     );
   }
 
-  const activeEnrollments = enrollments.filter(e => e.status === 'active');
-  const completedEnrollments = enrollments.filter(e => e.status === 'completed');
+  const activeEnrollments = enrollments.filter((e) => e.status === "active");
+  const completedEnrollments = enrollments.filter(
+    (e) => e.status === "completed",
+  );
 
   return (
     <div className="space-y-10 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Welcome back, {user?.name}!</h1>
-          <p className="text-muted-foreground">Continue your learning journey where you left off.</p>
+          <p className="text-muted-foreground">
+            Continue your learning journey where you left off.
+          </p>
         </div>
         <Link to="/courses">
           <Button className="gap-2">
@@ -84,8 +100,10 @@ export default function Dashboard() {
               <BookOpen className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground">Enrolled</p>
-              <p className="text-2xl font-bold">{enrollments.length}</p>
+              <p className="text-sm font-medium text-muted-foreground">
+                Enrolled
+              </p>
+              <p className="text-2xl font-bold">{enrollments?.length}</p>
             </div>
           </CardContent>
         </Card>
@@ -95,8 +113,10 @@ export default function Dashboard() {
               <Clock className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground">In Progress</p>
-              <p className="text-2xl font-bold">{activeEnrollments.length}</p>
+              <p className="text-sm font-medium text-muted-foreground">
+                In Progress
+              </p>
+              <p className="text-2xl font-bold">{activeEnrollments?.length}</p>
             </div>
           </CardContent>
         </Card>
@@ -106,8 +126,12 @@ export default function Dashboard() {
               <Trophy className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground">Completed</p>
-              <p className="text-2xl font-bold">{completedEnrollments.length}</p>
+              <p className="text-sm font-medium text-muted-foreground">
+                Completed
+              </p>
+              <p className="text-2xl font-bold">
+                {completedEnrollments?.length}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -117,8 +141,12 @@ export default function Dashboard() {
               <GraduationCap className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground">Certificates</p>
-              <p className="text-2xl font-bold">{completedEnrollments.length}</p>
+              <p className="text-sm font-medium text-muted-foreground">
+                Certificates
+              </p>
+              <p className="text-2xl font-bold">
+                {completedEnrollments.length}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -129,15 +157,21 @@ export default function Dashboard() {
           <TabsTrigger value="active">Active Learning</TabsTrigger>
           <TabsTrigger value="completed">Completed</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="active">
           {activeEnrollments.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {activeEnrollments.map((enrollment) => (
-                <Card key={enrollment._id} className="overflow-hidden group hover:shadow-md transition-shadow">
+                <Card
+                  key={enrollment._id}
+                  className="overflow-hidden group hover:shadow-md transition-shadow"
+                >
                   <div className="aspect-video relative">
-                    <img 
-                      src={enrollment.course.thumbnail || 'https://picsum.photos/seed/course/800/450'} 
+                    <img
+                      src={
+                        enrollment.course.thumbnail ||
+                        "https://picsum.photos/seed/course/800/450"
+                      }
                       alt={enrollment.course.title}
                       className="object-cover w-full h-full"
                       referrerPolicy="no-referrer"
@@ -147,8 +181,12 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <CardHeader className="p-4">
-                    <CardTitle className="text-lg line-clamp-1">{enrollment.course.title}</CardTitle>
-                    <CardDescription>By {enrollment.course.instructor.name}</CardDescription>
+                    <CardTitle className="text-lg line-clamp-1">
+                      {enrollment.course.title}
+                    </CardTitle>
+                    <CardDescription>
+                      By {enrollment.course.instructor.name}
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="p-4 pt-0 space-y-4">
                     <div className="space-y-2">
@@ -160,7 +198,10 @@ export default function Dashboard() {
                     </div>
                   </CardContent>
                   <CardFooter className="p-4 pt-0">
-                    <Link to={`/courses/${enrollment.course._id}`} className="w-full">
+                    <Link
+                      to={`/courses/${enrollment.course._id}`}
+                      className="w-full"
+                    >
                       <Button variant="outline" className="w-full gap-2">
                         Continue Learning <ArrowRight className="h-4 w-4" />
                       </Button>
@@ -171,24 +212,37 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="text-center py-20 bg-muted/20 rounded-2xl border-2 border-dashed">
-              <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-xl font-semibold">No active courses</h3>
-              <p className="text-muted-foreground mb-6">You haven't started any courses yet.</p>
+              <div className="p-4 rounded-full bg-primary/10 w-fit mx-auto mb-4">
+                <BookOpen className="h-12 w-12 text-primary" />
+              </div>
+              <h3 className="text-2xl font-bold mb-2">No active courses</h3>
+              <p className="text-muted-foreground mb-8 max-w-sm mx-auto">
+                You haven't enrolled in any courses yet. Explore our catalog to
+                find something that interests you!
+              </p>
               <Link to="/courses">
-                <Button>Browse Courses</Button>
+                <Button size="lg" className="gap-2">
+                  Browse Courses <ArrowRight className="h-4 w-4" />
+                </Button>
               </Link>
             </div>
           )}
         </TabsContent>
-        
+
         <TabsContent value="completed">
           {completedEnrollments.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {completedEnrollments.map((enrollment) => (
-                <Card key={enrollment._id} className="overflow-hidden opacity-80 hover:opacity-100 transition-opacity">
+                <Card
+                  key={enrollment._id}
+                  className="overflow-hidden opacity-80 hover:opacity-100 transition-opacity"
+                >
                   <div className="aspect-video relative">
-                    <img 
-                      src={enrollment.course.thumbnail || 'https://picsum.photos/seed/course/800/450'} 
+                    <img
+                      src={
+                        enrollment.course.thumbnail ||
+                        "https://picsum.photos/seed/course/800/450"
+                      }
                       alt={enrollment.course.title}
                       className="object-cover w-full h-full grayscale"
                       referrerPolicy="no-referrer"
@@ -198,20 +252,34 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <CardHeader className="p-4">
-                    <CardTitle className="text-lg line-clamp-1">{enrollment.course.title}</CardTitle>
-                    <CardDescription>By {enrollment.course.instructor.name}</CardDescription>
+                    <CardTitle className="text-lg line-clamp-1">
+                      {enrollment.course.title}
+                    </CardTitle>
+                    <CardDescription>
+                      By {enrollment.course.instructor.name}
+                    </CardDescription>
                   </CardHeader>
                   <CardFooter className="p-4 pt-0">
-                    <Button variant="outline" className="w-full">View Certificate</Button>
+                    <Button variant="outline" className="w-full">
+                      View Certificate
+                    </Button>
                   </CardFooter>
                 </Card>
               ))}
             </div>
           ) : (
             <div className="text-center py-20 bg-muted/20 rounded-2xl border-2 border-dashed">
-              <Trophy className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-xl font-semibold">No completed courses</h3>
-              <p className="text-muted-foreground">Keep learning to earn your first certificate!</p>
+              <div className="p-4 rounded-full bg-yellow-500/10 w-fit mx-auto mb-4">
+                <Trophy className="h-12 w-12 text-yellow-500" />
+              </div>
+              <h3 className="text-2xl font-bold mb-2">No completed courses</h3>
+              <p className="text-muted-foreground mb-8 max-w-sm mx-auto">
+                Finish your first course to earn a certificate and showcase your
+                skills!
+              </p>
+              <Link to="/courses">
+                <Button variant="outline">Start Learning</Button>
+              </Link>
             </div>
           )}
         </TabsContent>
@@ -221,7 +289,10 @@ export default function Dashboard() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold">Recommended for You</h2>
-          <Link to="/courses" className="text-sm font-medium text-primary hover:underline">
+          <Link
+            to="/courses"
+            className="text-sm font-medium text-primary hover:underline"
+          >
             View all
           </Link>
         </div>
@@ -229,15 +300,22 @@ export default function Dashboard() {
           {recommended.map((course) => (
             <Link key={course._id} to={`/courses/${course._id}`}>
               <Card className="h-full overflow-hidden hover:shadow-md transition-shadow">
-                <img 
-                  src={course.thumbnail || 'https://picsum.photos/seed/course/800/450'} 
+                <img
+                  src={
+                    course.thumbnail ||
+                    "https://picsum.photos/seed/course/800/450"
+                  }
                   alt={course.title}
                   className="aspect-video object-cover w-full"
                   referrerPolicy="no-referrer"
                 />
                 <CardHeader className="p-4">
-                  <Badge variant="secondary" className="w-fit mb-2">{course.category}</Badge>
-                  <CardTitle className="text-base line-clamp-2">{course.title}</CardTitle>
+                  <Badge variant="secondary" className="w-fit mb-2">
+                    {course.category}
+                  </Badge>
+                  <CardTitle className="text-base line-clamp-2">
+                    {course.title}
+                  </CardTitle>
                 </CardHeader>
               </Card>
             </Link>

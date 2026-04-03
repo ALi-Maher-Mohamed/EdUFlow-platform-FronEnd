@@ -1,35 +1,47 @@
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
-import { Input } from '../components/ui/input';
-import { Button } from '../components/ui/button';
-import { Badge } from '../components/ui/badge';
-import { Skeleton } from '../components/ui/skeleton';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Search, Filter, Star, BookOpen, User as UserIcon } from 'lucide-react';
-import api from '../lib/api';
-import { Course } from '../types';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "../../components/ui/card";
+import { Input } from "../../components/ui/input";
+import { Button } from "../../components/ui/button";
+import { Badge } from "../../components/ui/badge";
+import { Skeleton } from "../../components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/ui/select";
+import { Search, Filter, Star, BookOpen, User as UserIcon } from "lucide-react";
+import api from "../lib/api";
+import { Course } from "../types";
+import { Link } from "react-router-dom";
 
 export default function Courses() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [category, setCategory] = useState('all');
-  const [sort, setSort] = useState('-createdAt');
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("all");
+  const [sort, setSort] = useState("-createdAt");
 
   useEffect(() => {
     const fetchCourses = async () => {
       setIsLoading(true);
       try {
         const params = new URLSearchParams();
-        if (search) params.append('search', search);
-        if (category !== 'all') params.append('category', category);
-        params.append('sort', sort);
-        
+        if (search) params.append("search", search);
+        if (category !== "all") params.append("category", category);
+        params.append("sort", sort);
+
         const { data } = await api.get(`/courses?${params.toString()}`);
         setCourses(data.courses);
       } catch (error) {
-        console.error('Failed to fetch courses', error);
+        console.error("Failed to fetch courses", error);
       } finally {
         setIsLoading(false);
       }
@@ -46,14 +58,17 @@ export default function Courses() {
         <div className="flex flex-wrap items-center gap-4">
           <div className="relative w-full md:w-64">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Search..." 
-              className="pl-8" 
+            <Input
+              placeholder="Search..."
+              className="pl-8"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <Select value={category} onValueChange={setCategory}>
+          <Select
+            value={category}
+            onValueChange={(value) => value && setCategory(value)}
+          >
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
@@ -65,7 +80,10 @@ export default function Courses() {
               <SelectItem value="Marketing">Marketing</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={sort} onValueChange={setSort}>
+          <Select
+            value={sort}
+            onValueChange={(value) => value && setSort(value)}
+          >
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
@@ -95,14 +113,17 @@ export default function Courses() {
             </Card>
           ))}
         </div>
-      ) : courses.length > 0 ? (
+      ) : courses?.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {courses.map((course) => (
             <Link key={course._id} to={`/courses/${course._id}`}>
               <Card className="h-full overflow-hidden hover:shadow-lg transition-shadow group">
                 <div className="relative aspect-video overflow-hidden">
-                  <img 
-                    src={course.thumbnail || 'https://picsum.photos/seed/course/800/450'} 
+                  <img
+                    src={
+                      course.thumbnail ||
+                      "https://picsum.photos/seed/course/800/450"
+                    }
                     alt={course.title}
                     className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
                     referrerPolicy="no-referrer"
@@ -116,13 +137,19 @@ export default function Courses() {
                     <UserIcon className="h-3 w-3" />
                     <span>{course.instructor.name}</span>
                   </div>
-                  <CardTitle className="text-lg line-clamp-2 leading-tight">{course.title}</CardTitle>
+                  <CardTitle className="text-lg line-clamp-2 leading-tight">
+                    {course.title}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4 pt-0">
                   <div className="flex items-center gap-1 text-yellow-500 mb-2">
                     <Star className="h-4 w-4 fill-current" />
-                    <span className="text-sm font-bold">{course.rating.toFixed(1)}</span>
-                    <span className="text-xs text-muted-foreground">({course.numReviews})</span>
+                    <span className="text-sm font-bold">
+                      {course.rating.toFixed(1)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      ({course.numReviews})
+                    </span>
                   </div>
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <div className="flex items-center gap-1">
@@ -143,8 +170,16 @@ export default function Courses() {
         <div className="text-center py-20 bg-muted/20 rounded-2xl border-2 border-dashed">
           <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-xl font-semibold">No courses found</h3>
-          <p className="text-muted-foreground">Try adjusting your search or filters</p>
-          <Button variant="link" onClick={() => { setSearch(''); setCategory('all'); }}>
+          <p className="text-muted-foreground">
+            Try adjusting your search or filters
+          </p>
+          <Button
+            variant="link"
+            onClick={() => {
+              setSearch("");
+              setCategory("all");
+            }}
+          >
             Clear all filters
           </Button>
         </div>

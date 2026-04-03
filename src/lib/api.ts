@@ -1,12 +1,13 @@
-import axios from 'axios';
-import { useAuthStore } from '../store/authStore';
+import axios from "axios";
+import { useAuthStore } from "../store/authStore";
 
-const API_URL = (process.env.VITE_API_URL as string) || 'http://localhost:5000/api';
+const API_URL =
+  (process.env.VITE_API_URL as string) || "http://localhost:5500/api";
 
 const api = axios.create({
   baseURL: API_URL,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
@@ -21,7 +22,7 @@ api.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 // Response interceptor for handling 401
@@ -31,10 +32,10 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       useAuthStore.getState().logout();
       // Optionally redirect to login
-      window.location.href = '/auth';
+      window.location.href = "/auth";
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 export default api;
