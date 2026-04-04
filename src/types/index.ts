@@ -1,4 +1,4 @@
-export type Role = 'student' | 'instructor';
+export type Role = "student" | "instructor";
 
 export interface User {
   _id: string;
@@ -35,9 +35,10 @@ export interface Enrollment {
   _id: string;
   course: Course;
   student: string;
-  progress: number;
+  progress: any[];
   completedLessons: string[];
-  status: 'active' | 'completed';
+  enrolledAt: string;
+  status: "active" | "completed";
 }
 
 export interface Comment {

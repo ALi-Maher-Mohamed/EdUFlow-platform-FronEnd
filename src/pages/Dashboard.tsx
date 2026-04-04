@@ -31,6 +31,11 @@ import { Enrollment, Course } from "../types";
 import { useAuthStore } from "../store/authStore";
 import { Link } from "react-router-dom";
 
+const calculateProgress = (progressArray: any[]) => {
+  if (!progressArray || progressArray.length === 0) return 0;
+  const completedLessons = progressArray.filter((p) => p.completed).length;
+  return (completedLessons / progressArray.length) * 100;
+};
 export default function Dashboard() {
   const { user } = useAuthStore();
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
@@ -45,6 +50,7 @@ export default function Dashboard() {
           api.get("/enrollments/my?page=1&limit=5"),
           api.get("/courses?limit=3&sort=-rating"),
         ]);
+        console.log(enrollmentsRes.data.data);
         setEnrollments(enrollmentsRes.data.data);
         setRecommended(coursesRes.data.data);
       } catch (error) {
@@ -71,10 +77,15 @@ export default function Dashboard() {
     );
   }
 
-  const activeEnrollments = enrollments.filter((e) => e.status === "active");
-  const completedEnrollments = enrollments.filter(
-    (e) => e.status === "completed",
-  );
+  const activeEnrollments = enrollments.filter((e) => {
+    const prog = calculateProgress(e.progress);
+    return prog < 100;
+  });
+
+  const completedEnrollments = enrollments.filter((e) => {
+    const prog = calculateProgress(e.progress);
+    return prog === 100 && e.progress.length > 0;
+  });
 
   return (
     <div className="space-y-10 pb-20">
@@ -161,54 +172,58 @@ export default function Dashboard() {
         <TabsContent value="active">
           {activeEnrollments.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {activeEnrollments.map((enrollment) => (
-                <Card
-                  key={enrollment._id}
-                  className="overflow-hidden group hover:shadow-md transition-shadow"
-                >
-                  <div className="aspect-video relative">
-                    <img
-                      src={
-                        enrollment.course.thumbnail ||
-                        "https://picsum.photos/seed/course/800/450"
-                      }
-                      alt={enrollment.course.title}
-                      className="object-cover w-full h-full"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <PlayCircle className="h-12 w-12 text-white" />
-                    </div>
-                  </div>
-                  <CardHeader className="p-4">
-                    <CardTitle className="text-lg line-clamp-1">
-                      {enrollment.course.title}
-                    </CardTitle>
-                    <CardDescription>
-                      By {enrollment.course.instructor.name}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0 space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-xs font-medium">
-                        <span>Progress</span>
-                        <span>{Math.round(enrollment.progress)}%</span>
+              {activeEnrollments.map((enrollment) => {
+                const currentProgress = calculateProgress(enrollment.progress); // حساب القيمة هنا
+
+                return (
+                  <Card
+                    key={enrollment._id}
+                    className="overflow-hidden group hover:shadow-md transition-shadow"
+                  >
+                    <div className="aspect-video relative">
+                      <img
+                        src={
+                          enrollment.course.thumbnail ||
+                          "https://picsum.photos/seed/course/800/450"
+                        }
+                        alt={enrollment.course.title}
+                        className="object-cover w-full h-full"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <PlayCircle className="h-12 w-12 text-white" />
                       </div>
-                      <Progress value={enrollment.progress} className="h-2" />
                     </div>
-                  </CardContent>
-                  <CardFooter className="p-4 pt-0">
-                    <Link
-                      to={`/courses/${enrollment.course._id}`}
-                      className="w-full"
-                    >
-                      <Button variant="outline" className="w-full gap-2">
-                        Continue Learning <ArrowRight className="h-4 w-4" />
-                      </Button>
-                    </Link>
-                  </CardFooter>
-                </Card>
-              ))}
+                    <CardHeader className="p-4">
+                      <CardTitle className="text-lg line-clamp-1">
+                        {enrollment.course.title}
+                      </CardTitle>
+                      <CardDescription>
+                        Category: {enrollment.course.category}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-0 space-y-4">
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs font-medium">
+                          <span>Progress</span>
+                          <span>{Math.round(currentProgress)}%</span>
+                        </div>
+                        <Progress value={currentProgress} className="h-2" />
+                      </div>
+                    </CardContent>
+                    <CardFooter className="p-4 pt-0">
+                      <Link
+                        to={`/courses/${enrollment.course._id}`}
+                        className="w-full"
+                      >
+                        <Button variant="outline" className="w-full gap-2">
+                          Continue Learning <ArrowRight className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                    </CardFooter>
+                  </Card>
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-20 bg-muted/20 rounded-2xl border-2 border-dashed">
