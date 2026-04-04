@@ -9,6 +9,8 @@ export interface User {
 }
 
 export interface Course {
+  [x: string]: any;
+  totalEnrollments: any;
   _id: string;
   title: string;
   description: string;

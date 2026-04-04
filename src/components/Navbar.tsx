@@ -59,11 +59,6 @@ export default function Navbar() {
             <BookOpen className="h-6 w-6" />
             <span>EduFlow</span>
           </Link>
-
-          <div className="hidden md:flex relative w-64">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search courses..." className="pl-8" />
-          </div>
         </div>
 
         <div className="hidden md:flex items-center gap-4">
@@ -190,10 +185,6 @@ export default function Navbar() {
       {/* Mobile Menu */}
       {isMenuOpen && (
         <div className="md:hidden border-t bg-background p-4 space-y-4 animate-in slide-in-from-top duration-300">
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search courses..." className="pl-8 w-full" />
-          </div>
           <Link
             to="/courses"
             className="block text-sm font-medium py-2"

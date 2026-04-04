@@ -1,15 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardFooter,
-} from "../../components/ui/card";
+import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
-import { Badge } from "../../components/ui/badge";
 import { Skeleton } from "../../components/ui/skeleton";
 import {
   Tabs,
@@ -35,19 +27,56 @@ import {
   ArrowLeft,
   Users,
   Loader2,
+  MessageSquare,
 } from "lucide-react";
 import api from "../lib/api";
-import { Course, Lesson, Enrollment } from "../types";
+import { Course, Enrollment } from "../types";
 import { useAuthStore } from "../store/authStore";
 import { toast } from "sonner";
+
+const CATEGORY_LABELS: Record<string, string> = {
+  "web-development": "Web Development",
+  "mobile-development": "Mobile Development",
+  "data-science": "Data Science",
+  devops: "DevOps",
+  design: "Design",
+  business: "Business",
+  marketing: "Marketing",
+};
+
+const CATEGORY_COLORS: Record<string, string> = {
+  "web-development": "bg-blue-100 text-blue-800",
+  "mobile-development": "bg-purple-100 text-purple-800",
+  "data-science": "bg-green-100 text-green-800",
+  devops: "bg-orange-100 text-orange-800",
+  design: "bg-pink-100 text-pink-800",
+  business: "bg-yellow-100 text-yellow-800",
+  marketing: "bg-teal-100 text-teal-800",
+};
+
+function RatingStars({ rating }: { rating: number }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <Star
+          key={star}
+          className={`h-4 w-4 ${
+            star <= Math.round(rating)
+              ? "fill-yellow-400 text-yellow-400"
+              : "text-gray-300"
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function CourseDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
 
   const [course, setCourse] = useState<Course | null>(null);
-  const [lessons, setLessons] = useState<Lesson[]>([]);
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEnrolling, setIsEnrolling] = useState(false);
@@ -56,19 +85,23 @@ export default function CourseDetail() {
     const fetchCourseData = async () => {
       setIsLoading(true);
       try {
-        const [courseRes, lessonsRes] = await Promise.all([
-          api.get(`/courses/${id}`),
-          api.get(`/courses/${id}/lessons`),
-        ]);
-
-        // ✅ standardized response
+        // Lessons are embedded inside the course response
+        const courseRes = await api.get(`/courses/${id}`);
         setCourse(courseRes.data?.data ?? null);
-        setLessons(lessonsRes.data?.data ?? []);
 
         if (isAuthenticated) {
-          const enrollmentRes = await api.get(`/enrollments/my?page=1&limit=5`);
-          //              /enrollments/my?page=1&limit=5
-          setEnrollment(enrollmentRes.data?.data ?? null);
+          try {
+            const enrollmentRes = await api.get(
+              `/enrollments/my?page=1&limit=100`,
+            );
+            const enrollments: Enrollment[] = enrollmentRes.data?.data ?? [];
+            const found = enrollments.find(
+              (e: any) => (e.course?._id ?? e.course) === id,
+            );
+            setEnrollment(found ?? null);
+          } catch {
+            setEnrollment(null);
+          }
         }
       } catch (error) {
         console.error("Failed to fetch course details", error);
@@ -87,11 +120,10 @@ export default function CourseDetail() {
       navigate("/auth");
       return;
     }
-
     setIsEnrolling(true);
     try {
       const { data } = await api.post("/enrollments", { courseId: id });
-      setEnrollment(data.enrollment);
+      setEnrollment(data.enrollment ?? data.data ?? data);
       toast.success("Successfully enrolled!");
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Enrollment failed");
@@ -120,6 +152,13 @@ export default function CourseDetail() {
 
   if (!course) return null;
 
+  const lessons = [...(course.lessons ?? [])].sort((a, b) => a.order - b.order);
+  const categoryLabel = CATEGORY_LABELS[course.category] ?? course.category;
+  const categoryColor =
+    CATEGORY_COLORS[course.category] ?? "bg-gray-100 text-gray-800";
+  const reviewCount = course.ratings?.length ?? 0;
+  const avgRating = course.averageRating ?? 0;
+
   return (
     <div className="space-y-8 pb-20">
       <Button variant="ghost" className="gap-2" onClick={() => navigate(-1)}>
@@ -127,39 +166,60 @@ export default function CourseDetail() {
       </Button>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Content */}
+        {/* ── Main Content ── */}
         <div className="lg:col-span-2 space-y-8">
           <div className="space-y-4">
-            <Badge className="px-3 py-1 text-sm">{course.category}</Badge>
+            <span
+              className={`inline-block text-xs font-semibold px-3 py-1 rounded-full ${categoryColor}`}
+            >
+              {categoryLabel}
+            </span>
+
             <h1 className="text-4xl font-bold leading-tight">{course.title}</h1>
             <p className="text-xl text-muted-foreground">
               {course.description}
             </p>
 
             <div className="flex flex-wrap items-center gap-6 text-sm">
-              <div className="flex items-center gap-1 text-yellow-500 font-bold">
-                <Star className="h-4 w-4 fill-current" />
-                <span>{course.rating?.toFixed(1)}</span>
-                <span className="text-muted-foreground font-normal">
-                  ({course.numReviews} reviews)
+              {/* Rating */}
+              <div className="flex items-center gap-2">
+                <RatingStars rating={avgRating} />
+                <span className="font-bold text-yellow-500">
+                  {avgRating > 0 ? avgRating.toFixed(1) : "No rating"}
+                </span>
+                <span className="text-muted-foreground">
+                  ({reviewCount} {reviewCount === 1 ? "review" : "reviews"})
                 </span>
               </div>
-              <div className="flex items-center gap-1">
+
+              {/* Enrollments */}
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <Users className="h-4 w-4" />
+                <span>
+                  {course.totalEnrollments}{" "}
+                  {course.totalEnrollments === 1 ? "student" : "students"}
+                </span>
+              </div>
+
+              {/* Instructor */}
+              <div className="flex items-center gap-1 text-muted-foreground">
                 <UserIcon className="h-4 w-4" />
                 <span>
-                  Created by{" "}
-                  <span className="font-semibold text-primary">
+                  By{" "}
+                  <span className="font-semibold text-foreground">
                     {course.instructor.name}
                   </span>
                 </span>
               </div>
-              <div className="flex items-center gap-1">
+
+              <div className="flex items-center gap-1 text-muted-foreground">
                 <Globe className="h-4 w-4" />
                 <span>English</span>
               </div>
             </div>
           </div>
 
+          {/* ── Tabs ── */}
           <Tabs defaultValue="content" className="w-full">
             <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
               <TabsTrigger
@@ -175,6 +235,17 @@ export default function CourseDetail() {
                 Description
               </TabsTrigger>
               <TabsTrigger
+                value="reviews"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3"
+              >
+                Reviews
+                {reviewCount > 0 && (
+                  <span className="ml-1.5 text-xs bg-muted px-1.5 py-0.5 rounded-full">
+                    {reviewCount}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger
                 value="instructor"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3"
               >
@@ -182,51 +253,68 @@ export default function CourseDetail() {
               </TabsTrigger>
             </TabsList>
 
+            {/* Tab: Course Content */}
             <TabsContent value="content" className="pt-6">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xl font-bold">Curriculum</h3>
                   <span className="text-sm text-muted-foreground">
-                    {lessons.length} lessons
+                    {lessons.length}{" "}
+                    {lessons.length === 1 ? "lesson" : "lessons"}
                   </span>
                 </div>
 
-                <Accordion className="w-full border rounded-xl overflow-hidden">
-                  <AccordionItem value="section-1" className="border-none">
-                    <AccordionTrigger className="px-6 bg-muted/30 hover:no-underline">
-                      <span className="font-semibold">Course Introduction</span>
-                    </AccordionTrigger>
-                    <AccordionContent className="px-0">
-                      {lessons.map((lesson, index) => (
-                        <div
-                          key={lesson._id}
-                          className="flex items-center justify-between px-6 py-4 hover:bg-muted/50 transition-colors border-t first:border-t-0"
-                        >
-                          <div className="flex items-center gap-3">
-                            {enrollment ? (
-                              <PlayCircle className="h-5 w-5 text-primary" />
-                            ) : (
-                              <Lock className="h-5 w-5 text-muted-foreground" />
+                {lessons.length > 0 ? (
+                  <Accordion
+                    type={["single"]}
+                    collapsible
+                    defaultValue={["section-1"]}
+                    className="w-full border rounded-xl overflow-hidden"
+                  >
+                    <AccordionItem value="section-1" className="border-none">
+                      <AccordionTrigger className="px-6 bg-muted/30 hover:no-underline">
+                        <span className="font-semibold">
+                          Course Introduction
+                        </span>
+                      </AccordionTrigger>
+                      <AccordionContent className="px-0 pb-0">
+                        {lessons.map((lesson, index) => (
+                          <div
+                            key={lesson._id}
+                            className="flex items-center justify-between px-6 py-4 hover:bg-muted/50 transition-colors border-t first:border-t-0"
+                          >
+                            <div className="flex items-center gap-3">
+                              {enrollment ? (
+                                <PlayCircle className="h-5 w-5 text-primary shrink-0" />
+                              ) : (
+                                <Lock className="h-5 w-5 text-muted-foreground shrink-0" />
+                              )}
+                              <span className="text-sm font-medium">
+                                {lesson.order ?? index + 1}. {lesson.title}
+                              </span>
+                            </div>
+                            {enrollment && (
+                              <Link to={`/lessons/${lesson._id}`}>
+                                <Button variant="ghost" size="sm">
+                                  Start
+                                </Button>
+                              </Link>
                             )}
-                            <span className="text-sm font-medium">
-                              {index + 1}. {lesson.title}
-                            </span>
                           </div>
-                          {enrollment && (
-                            <Link to={`/lessons/${lesson._id}`}>
-                              <Button variant="ghost" size="sm">
-                                Start
-                              </Button>
-                            </Link>
-                          )}
-                        </div>
-                      ))}
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
+                        ))}
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                ) : (
+                  <div className="text-center py-12 border rounded-xl text-muted-foreground">
+                    <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>No lessons added yet.</p>
+                  </div>
+                )}
               </div>
             </TabsContent>
 
+            {/* Tab: Description */}
             <TabsContent
               value="description"
               className="pt-6 prose dark:prose-invert max-w-none"
@@ -238,39 +326,104 @@ export default function CourseDetail() {
                   <div key={i} className="flex items-start gap-2">
                     <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
                     <span className="text-sm">
-                      Master the core concepts of {course.category} with
-                      hands-on projects.
+                      Master the core concepts of {categoryLabel} with hands-on
+                      projects.
                     </span>
                   </div>
                 ))}
               </div>
             </TabsContent>
 
+            {/* Tab: Reviews */}
+            <TabsContent value="reviews" className="pt-6">
+              <div className="space-y-4">
+                <div className="flex items-center gap-6 p-6 bg-muted/30 rounded-xl border">
+                  <div className="text-center">
+                    <p className="text-5xl font-bold">
+                      {avgRating > 0 ? avgRating.toFixed(1) : "—"}
+                    </p>
+                    <div className="mt-1">
+                      <RatingStars rating={avgRating} />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Course Rating
+                    </p>
+                  </div>
+                  <div className="flex-1 space-y-1 text-sm text-muted-foreground">
+                    <p>
+                      {reviewCount} {reviewCount === 1 ? "review" : "reviews"}{" "}
+                      total
+                    </p>
+                    <p>
+                      {course.totalEnrollments} enrolled student
+                      {course.totalEnrollments !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+                </div>
+
+                {course.ratings && course.ratings.length > 0 ? (
+                  <div className="space-y-4">
+                    {course.ratings.map((r) => (
+                      <div
+                        key={r._id}
+                        className="flex items-start gap-4 p-4 border rounded-xl"
+                      >
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">
+                          <UserIcon className="h-5 w-5" />
+                        </div>
+                        <div className="space-y-1 flex-1">
+                          <div className="flex items-center gap-2">
+                            <RatingStars rating={r.rating} />
+                            <span className="text-sm font-semibold">
+                              {r.rating}/5
+                            </span>
+                          </div>
+                          {r.review && (
+                            <p className="text-sm text-muted-foreground">
+                              {r.review}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 border rounded-xl text-muted-foreground">
+                    <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>No reviews yet. Be the first to review!</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            {/* Tab: Instructor */}
             <TabsContent value="instructor" className="pt-6">
               <Card className="bg-muted/30 border-none">
                 <CardContent className="p-6 flex items-start gap-6">
-                  <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center text-primary text-3xl font-bold">
-                    {course.instructor.name.charAt(0)}
+                  <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center text-primary text-3xl font-bold shrink-0">
+                    {course.instructor.name.charAt(0).toUpperCase()}
                   </div>
                   <div className="space-y-2">
                     <h4 className="text-xl font-bold">
                       {course.instructor.name}
                     </h4>
                     <p className="text-sm text-muted-foreground">
-                      Expert Instructor in {course.category}
+                      Expert Instructor · {categoryLabel}
                     </p>
-                    <div className="flex items-center gap-4 text-xs font-medium">
+                    <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-muted-foreground mt-2">
                       <div className="flex items-center gap-1">
-                        <Star className="h-3 w-3 fill-current text-yellow-500" />
-                        <span>4.8 Instructor Rating</span>
+                        <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                        <span>
+                          {avgRating > 0 ? avgRating.toFixed(1) : "—"} Rating
+                        </span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <Users className="h-3 w-3" />
-                        <span>12,450 Students</span>
+                        <Users className="h-3.5 w-3.5" />
+                        <span>{course.totalEnrollments} Students</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <PlayCircle className="h-3 w-3" />
-                        <span>12 Courses</span>
+                        <BookOpen className="h-3.5 w-3.5" />
+                        <span>{lessons.length} Lessons</span>
                       </div>
                     </div>
                   </div>
@@ -280,14 +433,15 @@ export default function CourseDetail() {
           </Tabs>
         </div>
 
-        {/* Sidebar */}
+        {/* ── Sidebar ── */}
         <div className="space-y-6">
           <Card className="sticky top-24 overflow-hidden shadow-xl border-2 border-primary/20">
-            <div className="aspect-video relative">
+            {/* Thumbnail */}
+            <div className="aspect-video relative bg-muted">
               <img
                 src={
                   course.thumbnail ||
-                  "https://picsum.photos/seed/course/800/450"
+                  `https://picsum.photos/seed/${course._id}/800/450`
                 }
                 alt={course.title}
                 className="object-cover w-full h-full"
@@ -297,14 +451,20 @@ export default function CourseDetail() {
                 <PlayCircle className="h-16 w-16 text-white" />
               </div>
             </div>
-            <CardHeader>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-bold">${course.price}</span>
-                <span className="text-muted-foreground line-through text-sm">
-                  $99.99
-                </span>
+
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <Users className="h-4 w-4" />
+                  <span>{course.totalEnrollments} students</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <BookOpen className="h-4 w-4" />
+                  <span>{lessons.length} lessons</span>
+                </div>
               </div>
             </CardHeader>
+
             <CardContent className="space-y-4">
               {enrollment ? (
                 <Link
@@ -327,32 +487,42 @@ export default function CourseDetail() {
                   {isEnrolling && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
-                  Enroll Now
+                  Enroll Now — Free
                 </Button>
               )}
+
               <p className="text-center text-xs text-muted-foreground">
                 30-Day Money-Back Guarantee
               </p>
 
               <div className="space-y-3 pt-4 border-t">
                 <h4 className="font-bold text-sm">This course includes:</h4>
-                <div className="space-y-2 text-sm">
+                <div className="space-y-2 text-sm text-muted-foreground">
                   <div className="flex items-center gap-2">
-                    <PlayCircle className="h-4 w-4 text-muted-foreground" />
-                    <span>12 hours on-demand video</span>
+                    <BookOpen className="h-4 w-4" />
+                    <span>{lessons.length} on-demand lessons</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <BookOpen className="h-4 w-4 text-muted-foreground" />
-                    <span>{lessons.length} lessons</span>
+                    <Users className="h-4 w-4" />
+                    <span>{course.totalEnrollments} enrolled students</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <Clock className="h-4 w-4" />
                     <span>Full lifetime access</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                    <CheckCircle2 className="h-4 w-4" />
                     <span>Certificate of completion</span>
                   </div>
+                  {avgRating > 0 && (
+                    <div className="flex items-center gap-2">
+                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      <span>
+                        {avgRating.toFixed(1)} avg rating ({reviewCount}{" "}
+                        {reviewCount === 1 ? "review" : "reviews"})
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>
