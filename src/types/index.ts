@@ -37,7 +37,7 @@ export interface Enrollment {
   _id: string;
   course: Course;
   student: string;
-  progress: any[];
+  progress: number;
   completedLessons: string[];
   enrolledAt: string;
   status: "active" | "completed";

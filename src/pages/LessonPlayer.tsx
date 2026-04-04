@@ -127,11 +127,23 @@ export default function LessonPlayer() {
 
     setIsSubmitting(true);
     try {
-      const { data } = await api.post("/comments", {
-        lessonId: id,
+      const { data } = await api.post(`lessons/${lesson?._id}/comments`, {
         text: newComment,
       });
-      setComments([data.comment, ...comments]);
+
+      // Build a safe comment object using the API response + current user fallback
+      const addedComment = {
+        _id: data.comment?._id ?? data._id ?? crypto.randomUUID(),
+        text: data.comment?.text ?? newComment,
+        createdAt: data.comment?.createdAt ?? new Date().toISOString(),
+        user: data.comment?.user ?? {
+          _id: user?._id,
+          name: user?.name ?? "You",
+          avatar: user?.avatar ?? "",
+        },
+      };
+
+      setComments((prev) => [addedComment, ...prev]);
       setNewComment("");
       toast.success("Comment posted");
     } catch (error: any) {
@@ -140,7 +152,6 @@ export default function LessonPlayer() {
       setIsSubmitting(false);
     }
   };
-
   if (isLoading) {
     return (
       <div className="container mx-auto p-8 space-y-8">
@@ -253,10 +264,13 @@ export default function LessonPlayer() {
             </TabsContent>
 
             <TabsContent value="comments" className="pt-6 space-y-8">
+              {/* New comment input */}
               <div className="flex gap-4">
                 <Avatar className="h-10 w-10 border">
                   <AvatarImage src={user?.avatar} />
-                  <AvatarFallback>{user?.name.charAt(0)}</AvatarFallback>
+                  <AvatarFallback>
+                    {user?.name?.charAt(0)?.toUpperCase() ?? "?"}
+                  </AvatarFallback>
                 </Avatar>
                 <form
                   onSubmit={handleCommentSubmit}
@@ -281,28 +295,44 @@ export default function LessonPlayer() {
                 </form>
               </div>
 
+              {/* Comments list */}
               <div className="space-y-6">
-                {comments.map((comment) => (
-                  <div key={comment._id} className="flex gap-4">
-                    <Avatar className="h-10 w-10 border">
-                      <AvatarImage src={comment.user.avatar} />
-                      <AvatarFallback>
-                        {comment.user.name.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm">
-                          {comment.user.name}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(comment.createdAt))} ago
-                        </span>
+                {comments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">
+                    No comments yet. Be the first to comment!
+                  </p>
+                ) : (
+                  comments.map((comment) => {
+                    const userName = comment?.user?.name ?? "Unknown";
+                    const userAvatar = comment?.user?.avatar ?? "";
+                    const commentDate = comment?.createdAt
+                      ? formatDistanceToNow(new Date(comment.createdAt)) +
+                        " ago"
+                      : "just now";
+
+                    return (
+                      <div key={comment._id} className="flex gap-4">
+                        <Avatar className="h-10 w-10 border">
+                          <AvatarImage src={userAvatar} />
+                          <AvatarFallback>
+                            {userName.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-sm">
+                              {userName}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {commentDate}
+                            </span>
+                          </div>
+                          <p className="text-sm">{comment.text}</p>
+                        </div>
                       </div>
-                      <p className="text-sm">{comment.text}</p>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  })
+                )}
               </div>
             </TabsContent>
 

@@ -266,8 +266,8 @@ export default function CourseDetail() {
 
                 {lessons.length > 0 ? (
                   <Accordion
-                    type={["single"]}
-                    collapsible
+                    // type="single"
+                    // collapsible
                     defaultValue={["section-1"]}
                     className="w-full border rounded-xl overflow-hidden"
                   >
@@ -363,7 +363,7 @@ export default function CourseDetail() {
 
                 {course.ratings && course.ratings.length > 0 ? (
                   <div className="space-y-4">
-                    {course.ratings.map((r) => (
+                    {course.ratings.map((r: any) => (
                       <div
                         key={r._id}
                         className="flex items-start gap-4 p-4 border rounded-xl"
