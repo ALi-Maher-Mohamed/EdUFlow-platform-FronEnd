@@ -117,37 +117,49 @@ function InstructorDashboard() {
     }));
   }, [timeRange]);
 
+  const [thumbnailPreview, setThumbnailPreview] = useState<string>("");
+
+  // ─── handleThumbnailChange ────────────────────────────────────────────────
+  const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setNewCourse((prev) => ({ ...prev, thumbnail: file }));
+    setThumbnailPreview(URL.createObjectURL(file));
+  };
+
+  // ─── handleCreateCourse ───────────────────────────────────────────────────
   const handleCreateCourse = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsCreating(true);
     try {
-      const { data } = await api.post("/courses", newCourse);
-      setCourses([data.course, ...courses]);
+      // API expects multipart/form-data because of the image upload
+      const formData = new FormData();
+      formData.append("title", newCourse.title);
+      formData.append("description", newCourse.description);
+      formData.append("category", newCourse.category);
+      if (newCourse.thumbnail) {
+        formData.append("thumbnail", newCourse.thumbnail);
+      }
+
+      const { data } = await api.post("/courses", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      // API returns the new course inside data.data
+      setCourses((prev) => [data.data, ...prev]);
       toast.success("Course created successfully!");
       setIsDialogOpen(false);
       setNewCourse({
         title: "",
         description: "",
-        category: "Web Development",
-        price: 0,
-        thumbnail: "",
+        category: "web-development",
+        thumbnail: null,
       });
+      setThumbnailPreview("");
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to create course");
     } finally {
       setIsCreating(false);
-    }
-  };
-
-  const handleDeleteCourse = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this course?")) return;
-
-    try {
-      await api.delete(`/courses/${id}`);
-      setCourses(courses.filter((c) => c._id !== id));
-      toast.success("Course deleted");
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to delete course");
     }
   };
 
@@ -189,11 +201,12 @@ function InstructorDashboard() {
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger>
+          <DialogTrigger asChild>
             <Button className="gap-2">
               <Plus className="h-4 w-4" /> Create New Course
             </Button>
           </DialogTrigger>
+
           <DialogContent className="sm:max-w-[500px]">
             <form onSubmit={handleCreateCourse}>
               <DialogHeader>
@@ -202,7 +215,9 @@ function InstructorDashboard() {
                   Fill in the details below to create your new course.
                 </DialogDescription>
               </DialogHeader>
+
               <div className="grid gap-4 py-4">
+                {/* Title */}
                 <div className="grid gap-2">
                   <Label htmlFor="title">Course Title</Label>
                   <Input
@@ -211,10 +226,15 @@ function InstructorDashboard() {
                     required
                     value={newCourse.title}
                     onChange={(e) =>
-                      setNewCourse({ ...newCourse, title: e.target.value })
+                      setNewCourse((prev) => ({
+                        ...prev,
+                        title: e.target.value,
+                      }))
                     }
                   />
                 </div>
+
+                {/* Description */}
                 <div className="grid gap-2">
                   <Label htmlFor="description">Description</Label>
                   <Textarea
@@ -224,56 +244,73 @@ function InstructorDashboard() {
                     required
                     value={newCourse.description}
                     onChange={(e) =>
-                      setNewCourse({
-                        ...newCourse,
+                      setNewCourse((prev) => ({
+                        ...prev,
                         description: e.target.value,
-                      })
+                      }))
                     }
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="category">Category</Label>
-                    <Select
-                      value={newCourse.category}
-                      onValueChange={(v) =>
-                        setNewCourse({
-                          ...newCourse,
-                          category: v || "Alternate Category",
-                        })
-                      }
+
+                {/* Category */}
+                <div className="grid gap-2">
+                  <Label htmlFor="category">Category</Label>
+                  <Select
+                    value={newCourse.category}
+                    onValueChange={(v) =>
+                      setNewCourse((prev) => ({ ...prev, category: v }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="web-development">
+                        Web Development
+                      </SelectItem>
+                      <SelectItem value="mobile-development">
+                        Mobile Development
+                      </SelectItem>
+                      <SelectItem value="data-science">Data Science</SelectItem>
+                      <SelectItem value="devops">DevOps</SelectItem>
+                      <SelectItem value="design">Design</SelectItem>
+                      <SelectItem value="business">Business</SelectItem>
+                      <SelectItem value="marketing">Marketing</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Thumbnail upload */}
+                <div className="grid gap-2">
+                  <Label htmlFor="thumbnail">Course Thumbnail</Label>
+                  <div className="flex items-center gap-3">
+                    <label
+                      htmlFor="thumbnail"
+                      className="flex items-center gap-2 cursor-pointer border border-dashed rounded-lg px-4 py-3 text-sm text-muted-foreground hover:bg-muted/50 transition-colors flex-1"
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Web Development">
-                          Web Development
-                        </SelectItem>
-                        <SelectItem value="Design">Design</SelectItem>
-                        <SelectItem value="Business">Business</SelectItem>
-                        <SelectItem value="Marketing">Marketing</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="price">Price ($)</Label>
-                    <Input
-                      id="price"
-                      type="number"
-                      min="0"
-                      required
-                      value={newCourse.price}
-                      onChange={(e) =>
-                        setNewCourse({
-                          ...newCourse,
-                          price: Number(e.target.value),
-                        })
-                      }
-                    />
+                      <ImageIcon className="h-4 w-4 shrink-0" />
+                      {newCourse.thumbnail
+                        ? newCourse.thumbnail.name
+                        : "Click to upload image"}
+                      <input
+                        id="thumbnail"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleThumbnailChange}
+                      />
+                    </label>
+                    {thumbnailPreview && (
+                      <img
+                        src={thumbnailPreview}
+                        alt="Preview"
+                        className="h-14 w-20 object-cover rounded-lg border"
+                      />
+                    )}
                   </div>
                 </div>
               </div>
+
               <DialogFooter>
                 <Button type="submit" disabled={isCreating} className="w-full">
                   {isCreating && (

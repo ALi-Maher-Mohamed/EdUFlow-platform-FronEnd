@@ -61,58 +61,67 @@ export default function LessonPlayer() {
   useEffect(() => {
     const fetchLessonData = async () => {
       setIsLoading(true);
-
       try {
-        // 1. get lesson
+        // 1. جلب بيانات الدرس الحالي
         const { data: lessonRes } = await api.get(`/lessons/${id}`);
-        //  {{URL}}/api/lessons/{{LESSON_ID}}
-        const lesson = lessonRes.data;
+        const currentLesson = lessonRes.data;
+        setLesson(currentLesson);
 
-        setLesson(lesson);
+        const courseId = currentLesson?.course?._id || currentLesson?.course;
 
-        const courseId = lesson?.course?._id;
-
-        // 2. باقي الداتا
+        // 2. جلب باقي البيانات بالتوازي
         const [courseRes, lessonsRes, enrollmentRes, commentsRes] =
           await Promise.all([
             api.get(`/courses/${courseId}`),
-            // courses/{{COURSE_ID}}
             api.get(`/courses/${courseId}/lessons`),
-            // /courses/{{COURSE_ID}}/lessons
-            api.get(`/enrollments/my?page=1&limit=5`),
-            // enrollments/my?page=1&limit=5
-
+            api.get(`/enrollments/my?page=1&limit=100`), // جلب كل الاشتراكات للبحث
             api.get(`/lessons/${id}/comments`),
-            //      /lessons/{{LESSON_ID}}/comments
           ]);
+
+        // البحث عن الـ enrollment الخاص بهذا الكورس تحديداً
+        const allEnrollments =
+          enrollmentRes.data?.data ||
+          enrollmentRes.data?.enrollments ||
+          enrollmentRes.data;
+        const currentEnrollment = Array.isArray(allEnrollments)
+          ? allEnrollments.find(
+              (e: any) => (e.course?._id || e.course) === courseId,
+            )
+          : null;
 
         setCourse(courseRes.data.data);
         setLessons(lessonsRes.data.data);
-        setEnrollment(enrollmentRes.data.enrollment);
         setComments(commentsRes.data.data);
+        setEnrollment(currentEnrollment);
 
-        // 3. mark as completed
-        if (
-          enrollmentRes.data.enrollment &&
-          !enrollmentRes.data.enrollment.completedLessons.includes(id!)
-        ) {
-          await api.patch(
-            `/enrollments/${enrollmentRes.data.enrollment._id}/progress`,
-            { lessonId: id },
+        // 3. تحديث التقدم (Mark as Completed) تلقائياً عند فتح الدرس
+        if (currentEnrollment && id) {
+          const isAlreadyCompleted = currentEnrollment.progress?.some(
+            (p: any) => (p.lesson?._id || p.lesson) === id && p.completed,
           );
 
-          setEnrollment({
-            ...enrollmentRes.data.enrollment,
-            completedLessons: [
-              ...enrollmentRes.data.enrollment.completedLessons,
-              id!,
-            ],
-          });
+          if (!isAlreadyCompleted && id) {
+            try {
+              const { data: updateRes } = await api.patch(
+                `/enrollments/${currentEnrollment._id}/progress`,
+                {
+                  lessonId: id,
+                  completed: true,
+                },
+              );
+
+              if (updateRes.success) {
+                // تحديث الـ state بالبيانات الجديدة
+                setEnrollment(updateRes.data);
+              }
+            } catch (err) {
+              console.error("Failed to update progress", err);
+            }
+          }
         }
       } catch (error) {
         console.error("Failed to fetch lesson data", error);
-        toast.error("Access denied or lesson not found");
-        navigate("/dashboard");
+        toast.error("Error loading lesson");
       } finally {
         setIsLoading(false);
       }
@@ -121,6 +130,21 @@ export default function LessonPlayer() {
     fetchLessonData();
   }, [id, navigate]);
 
+  const handleNavigation = async (targetLessonId: string) => {
+    // قبل الانتقال، نتأكد من حفظ تقدم الدرس الحالي
+    if (enrollment?._id && id) {
+      try {
+        await api.patch(`/enrollments/${enrollment._id}/progress`, {
+          lessonId: id,
+          completed: true,
+        });
+      } catch (err) {
+        console.error("Silent failed to update progress on navigation");
+      }
+    }
+    // الانتقال للدرس التالي أو السابق
+    navigate(`/lessons/${targetLessonId}`);
+  };
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim()) return;
@@ -217,15 +241,16 @@ export default function LessonPlayer() {
                 variant="outline"
                 size="sm"
                 disabled={!prevLesson}
-                onClick={() => navigate(`/lessons/${prevLesson._id}`)}
+                onClick={() => handleNavigation(prevLesson._id)}
               >
                 <ChevronLeft className="h-4 w-4 mr-1" /> Previous
               </Button>
+
               <Button
                 variant="outline"
                 size="sm"
                 disabled={!nextLesson}
-                onClick={() => navigate(`/lessons/${nextLesson._id}`)}
+                onClick={() => handleNavigation(nextLesson._id)}
               >
                 Next <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
@@ -370,20 +395,30 @@ export default function LessonPlayer() {
               <CardTitle className="text-lg">Course Content</CardTitle>
               <div className="flex items-center justify-between text-xs text-muted-foreground mt-2">
                 <span>
-                  {enrollment?.completedLessons.length} / {lessons.length}{" "}
+                  {enrollment?.completedLessons?.length} / {lessons.length}{" "}
                   completed
                 </span>
-                <span>{Math.round(enrollment?.progress || 0)}%</span>
+                <span>
+                  {lessons.length > 0 && enrollment?.progress
+                    ? Math.round(
+                        (enrollment.progress.filter((p: any) => p.completed)
+                          .length /
+                          lessons.length) *
+                          100,
+                      )
+                    : 0}
+                  %
+                </span>{" "}
               </div>
             </CardHeader>
             <ScrollArea className="flex-1">
               <div className="p-0">
                 {lessons.map((l, index) => {
-                  const isCompleted = enrollment?.completedLessons.includes(
-                    l._id,
+                  const isCompleted = enrollment?.progress?.some(
+                    (p: any) =>
+                      (p.lesson?._id || p.lesson) === l._id && p.completed,
                   );
                   const isActive = l._id === id;
-
                   return (
                     <Link
                       key={l._id}
