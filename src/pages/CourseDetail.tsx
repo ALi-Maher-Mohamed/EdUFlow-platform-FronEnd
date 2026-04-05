@@ -16,6 +16,18 @@ import {
   AccordionTrigger,
 } from "../../components/ui/accordion";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../../components/ui/dialog";
+import { Input } from "../../components/ui/input";
+import { Label } from "../components/ui/label";
+import { Textarea } from "../../components/ui/textarea";
+import {
   Star,
   BookOpen,
   User as UserIcon,
@@ -28,12 +40,16 @@ import {
   Users,
   Loader2,
   MessageSquare,
+  Plus,
+  GripVertical,
+  BadgeCheck,
 } from "lucide-react";
 import api from "../lib/api";
-import { Course, Enrollment } from "../types";
+import { Course, Enrollment, Lesson } from "../types";
 import { useAuthStore } from "../store/authStore";
 import { toast } from "sonner";
 
+// ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORY_LABELS: Record<string, string> = {
   "web-development": "Web Development",
   "mobile-development": "Mobile Development",
@@ -54,6 +70,15 @@ const CATEGORY_COLORS: Record<string, string> = {
   marketing: "bg-teal-100 text-teal-800",
 };
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface NewLessonState {
+  title: string;
+  content: string;
+  videoUrl: string;
+  order: number;
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
 function RatingStars({ rating }: { rating: number }) {
   return (
     <div className="flex items-center gap-0.5">
@@ -71,23 +96,39 @@ function RatingStars({ rating }: { rating: number }) {
   );
 }
 
+// ─── Component ────────────────────────────────────────────────────────────────
 export default function CourseDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
 
   const [course, setCourse] = useState<Course | null>(null);
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEnrolling, setIsEnrolling] = useState(false);
 
+  // ── Add-lesson state ──────────────────────────────────────────────────────
+  const [isAddLessonOpen, setIsAddLessonOpen] = useState(false);
+  const [isAddingLesson, setIsAddingLesson] = useState(false);
+  const [newLesson, setNewLesson] = useState<NewLessonState>({
+    title: "",
+    content: "",
+    videoUrl: "",
+    order: 1,
+  });
+
+  // ─── Fetch course + enrollment ────────────────────────────────────────────
   useEffect(() => {
     const fetchCourseData = async () => {
       setIsLoading(true);
       try {
-        // Lessons are embedded inside the course response
         const courseRes = await api.get(`/courses/${id}`);
-        setCourse(courseRes.data?.data ?? null);
+        const fetchedCourse: Course = courseRes.data?.data ?? null;
+        setCourse(fetchedCourse);
+
+        // Pre-fill default order
+        const lessonCount = fetchedCourse?.lessons?.length ?? 0;
+        setNewLesson((prev) => ({ ...prev, order: lessonCount + 1 }));
 
         if (isAuthenticated) {
           try {
@@ -115,6 +156,7 @@ export default function CourseDetail() {
     fetchCourseData();
   }, [id, isAuthenticated, navigate]);
 
+  // ─── Enroll ───────────────────────────────────────────────────────────────
   const handleEnroll = async () => {
     if (!isAuthenticated) {
       navigate("/auth");
@@ -132,6 +174,48 @@ export default function CourseDetail() {
     }
   };
 
+  // ─── Add lesson ───────────────────────────────────────────────────────────
+  const handleAddLesson = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!course?._id) return;
+
+    setIsAddingLesson(true);
+    try {
+      const { data } = await api.post(`/courses/${course._id}/lessons`, {
+        title: newLesson.title,
+        content: newLesson.content,
+        videoUrl: newLesson.videoUrl,
+        order: newLesson.order,
+      });
+
+      // Normalise — API may wrap in data.data or data.lesson
+      const created: Lesson = data.data ?? data.lesson ?? data;
+
+      // Append new lesson to the course lessons list locally
+      setCourse((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          lessons: [...(prev.lessons ?? []), created],
+        };
+      });
+
+      toast.success("Lesson added successfully!");
+      setIsAddLessonOpen(false);
+      setNewLesson({
+        title: "",
+        content: "",
+        videoUrl: "",
+        order: (course.lessons?.length ?? 0) + 2,
+      });
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to add lesson");
+    } finally {
+      setIsAddingLesson(false);
+    }
+  };
+
+  // ─── Loading ──────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <div className="container mx-auto p-8 space-y-8">
@@ -152,13 +236,22 @@ export default function CourseDetail() {
 
   if (!course) return null;
 
-  const lessons = [...(course.lessons ?? [])].sort((a, b) => a.order - b.order);
+  // ─── Derived values ───────────────────────────────────────────────────────
+  const lessons = [...(course.lessons ?? [])].sort(
+    (a, b) => (a.order ?? 0) - (b.order ?? 0),
+  );
   const categoryLabel = CATEGORY_LABELS[course.category] ?? course.category;
   const categoryColor =
     CATEGORY_COLORS[course.category] ?? "bg-gray-100 text-gray-800";
   const reviewCount = course.ratings?.length ?? 0;
   const avgRating = course.averageRating ?? 0;
 
+  // True only when the logged-in user is the instructor who published this course
+  const isOwnerInstructor =
+    user?.role === "instructor" &&
+    (course.instructor?._id === user._id || course.instructor === user._id);
+
+  // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="space-y-8 pb-20">
       <Button variant="ghost" className="gap-2" onClick={() => navigate(-1)}>
@@ -169,11 +262,18 @@ export default function CourseDetail() {
         {/* ── Main Content ── */}
         <div className="lg:col-span-2 space-y-8">
           <div className="space-y-4">
-            <span
-              className={`inline-block text-xs font-semibold px-3 py-1 rounded-full ${categoryColor}`}
-            >
-              {categoryLabel}
-            </span>
+            <div className="flex items-center gap-3 flex-wrap">
+              <span
+                className={`inline-block text-xs font-semibold px-3 py-1 rounded-full ${categoryColor}`}
+              >
+                {categoryLabel}
+              </span>
+              {isOwnerInstructor && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-full bg-primary/10 text-primary">
+                  <BadgeCheck className="h-3.5 w-3.5" /> Your Course
+                </span>
+              )}
+            </div>
 
             <h1 className="text-4xl font-bold leading-tight">{course.title}</h1>
             <p className="text-xl text-muted-foreground">
@@ -207,7 +307,7 @@ export default function CourseDetail() {
                 <span>
                   By{" "}
                   <span className="font-semibold text-foreground">
-                    {course.instructor.name}
+                    {course.instructor?.name}
                   </span>
                 </span>
               </div>
@@ -256,18 +356,148 @@ export default function CourseDetail() {
             {/* Tab: Course Content */}
             <TabsContent value="content" className="pt-6">
               <div className="space-y-4">
+                {/* Header row: title + count + Add Lesson button */}
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold">Curriculum</h3>
-                  <span className="text-sm text-muted-foreground">
-                    {lessons.length}{" "}
-                    {lessons.length === 1 ? "lesson" : "lessons"}
-                  </span>
+                  <div>
+                    <h3 className="text-xl font-bold">Curriculum</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {lessons.length}{" "}
+                      {lessons.length === 1 ? "lesson" : "lessons"}
+                    </p>
+                  </div>
+
+                  {/* Add Lesson — only for the course owner instructor */}
+                  {isOwnerInstructor && (
+                    <Dialog
+                      open={isAddLessonOpen}
+                      onOpenChange={setIsAddLessonOpen}
+                    >
+                      <DialogTrigger asChild>
+                        <Button size="sm" className="gap-2">
+                          <Plus className="h-4 w-4" /> Add Lesson
+                        </Button>
+                      </DialogTrigger>
+
+                      <DialogContent className="sm:max-w-[520px]">
+                        <form onSubmit={handleAddLesson}>
+                          <DialogHeader>
+                            <DialogTitle>Add New Lesson</DialogTitle>
+                            <DialogDescription>
+                              Fill in the lesson details. It will be added to{" "}
+                              <span className="font-semibold">
+                                {course.title}
+                              </span>
+                              .
+                            </DialogDescription>
+                          </DialogHeader>
+
+                          <div className="grid gap-4 py-4">
+                            {/* Title */}
+                            <div className="grid gap-2">
+                              <Label htmlFor="lesson-title">Lesson Title</Label>
+                              <Input
+                                id="lesson-title"
+                                placeholder="e.g. Introduction to React"
+                                required
+                                value={newLesson.title}
+                                onChange={(e) =>
+                                  setNewLesson((prev) => ({
+                                    ...prev,
+                                    title: e.target.value,
+                                  }))
+                                }
+                              />
+                            </div>
+
+                            {/* Content */}
+                            <div className="grid gap-2">
+                              <Label htmlFor="lesson-content">
+                                Content{" "}
+                                <span className="text-xs text-muted-foreground">
+                                  (Markdown supported)
+                                </span>
+                              </Label>
+                              <Textarea
+                                id="lesson-content"
+                                placeholder="This lesson covers..."
+                                className="h-28 resize-none"
+                                required
+                                value={newLesson.content}
+                                onChange={(e) =>
+                                  setNewLesson((prev) => ({
+                                    ...prev,
+                                    content: e.target.value,
+                                  }))
+                                }
+                              />
+                            </div>
+
+                            {/* Video URL */}
+                            <div className="grid gap-2">
+                              <Label htmlFor="lesson-video">
+                                Video URL{" "}
+                                <span className="text-xs text-muted-foreground">
+                                  (optional)
+                                </span>
+                              </Label>
+                              <Input
+                                id="lesson-video"
+                                placeholder="https://youtube.com/watch?v=..."
+                                type="url"
+                                value={newLesson.videoUrl}
+                                onChange={(e) =>
+                                  setNewLesson((prev) => ({
+                                    ...prev,
+                                    videoUrl: e.target.value,
+                                  }))
+                                }
+                              />
+                            </div>
+
+                            {/* Order */}
+                            <div className="grid gap-2">
+                              <Label htmlFor="lesson-order">Order</Label>
+                              <Input
+                                id="lesson-order"
+                                type="number"
+                                min={1}
+                                required
+                                value={newLesson.order}
+                                onChange={(e) =>
+                                  setNewLesson((prev) => ({
+                                    ...prev,
+                                    order: Number(e.target.value),
+                                  }))
+                                }
+                              />
+                            </div>
+                          </div>
+
+                          <DialogFooter>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => setIsAddLessonOpen(false)}
+                              disabled={isAddingLesson}
+                            >
+                              Cancel
+                            </Button>
+                            <Button type="submit" disabled={isAddingLesson}>
+                              {isAddingLesson && (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              )}
+                              Add Lesson
+                            </Button>
+                          </DialogFooter>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
+                  )}
                 </div>
 
+                {/* Lesson list */}
                 {lessons.length > 0 ? (
                   <Accordion
-                    // type="single"
-                    // collapsible
                     defaultValue={["section-1"]}
                     className="w-full border rounded-xl overflow-hidden"
                   >
@@ -284,7 +514,10 @@ export default function CourseDetail() {
                             className="flex items-center justify-between px-6 py-4 hover:bg-muted/50 transition-colors border-t first:border-t-0"
                           >
                             <div className="flex items-center gap-3">
-                              {enrollment ? (
+                              {/* Icon: instructor sees grip, enrolled student sees play, others see lock */}
+                              {isOwnerInstructor ? (
+                                <GripVertical className="h-5 w-5 text-muted-foreground shrink-0" />
+                              ) : enrollment ? (
                                 <PlayCircle className="h-5 w-5 text-primary shrink-0" />
                               ) : (
                                 <Lock className="h-5 w-5 text-muted-foreground shrink-0" />
@@ -293,13 +526,15 @@ export default function CourseDetail() {
                                 {lesson.order ?? index + 1}. {lesson.title}
                               </span>
                             </div>
-                            {enrollment && (
+
+                            {/* Action: instructor goes to lesson page, enrolled student can start */}
+                            {isOwnerInstructor ? null : enrollment ? (
                               <Link to={`/lessons/${lesson._id}`}>
                                 <Button variant="ghost" size="sm">
                                   Start
                                 </Button>
                               </Link>
-                            )}
+                            ) : null}
                           </div>
                         ))}
                       </AccordionContent>
@@ -308,7 +543,11 @@ export default function CourseDetail() {
                 ) : (
                   <div className="text-center py-12 border rounded-xl text-muted-foreground">
                     <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>No lessons added yet.</p>
+                    <p>
+                      {isOwnerInstructor
+                        ? "No lessons yet. Add your first lesson above!"
+                        : "No lessons added yet."}
+                    </p>
                   </div>
                 )}
               </div>
@@ -401,11 +640,11 @@ export default function CourseDetail() {
               <Card className="bg-muted/30 border-none">
                 <CardContent className="p-6 flex items-start gap-6">
                   <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center text-primary text-3xl font-bold shrink-0">
-                    {course.instructor.name.charAt(0).toUpperCase()}
+                    {course.instructor?.name?.charAt(0).toUpperCase() ?? "I"}
                   </div>
                   <div className="space-y-2">
                     <h4 className="text-xl font-bold">
-                      {course.instructor.name}
+                      {course.instructor?.name}
                     </h4>
                     <p className="text-sm text-muted-foreground">
                       Expert Instructor · {categoryLabel}
@@ -466,7 +705,24 @@ export default function CourseDetail() {
             </CardHeader>
 
             <CardContent className="space-y-4">
-              {enrollment ? (
+              {/* CTA button: varies by role */}
+              {isOwnerInstructor ? (
+                // Owner instructor → go directly to first lesson to manage
+                <Link
+                  to={lessons[0]?._id ? `/lessons/${lessons[0]._id}` : "#"}
+                  className="block w-full"
+                >
+                  <Button
+                    className="w-full h-12 text-lg font-bold"
+                    variant="secondary"
+                    disabled={lessons.length === 0}
+                  >
+                    {lessons.length === 0
+                      ? "Add lessons to start"
+                      : "Manage Course"}
+                  </Button>
+                </Link>
+              ) : enrollment ? (
                 <Link
                   to={`/lessons/${lessons[0]?._id}`}
                   className="block w-full"
@@ -491,9 +747,11 @@ export default function CourseDetail() {
                 </Button>
               )}
 
-              <p className="text-center text-xs text-muted-foreground">
-                30-Day Money-Back Guarantee
-              </p>
+              {!isOwnerInstructor && (
+                <p className="text-center text-xs text-muted-foreground">
+                  30-Day Money-Back Guarantee
+                </p>
+              )}
 
               <div className="space-y-3 pt-4 border-t">
                 <h4 className="font-bold text-sm">This course includes:</h4>

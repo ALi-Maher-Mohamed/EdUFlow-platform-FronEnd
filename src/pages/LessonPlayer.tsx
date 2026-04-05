@@ -414,7 +414,7 @@ export default function LessonPlayer() {
             <ScrollArea className="flex-1">
               <div className="p-0">
                 {lessons.map((l, index) => {
-                  const isCompleted = enrollment?.progress?.some(
+                  const isCompleted = (enrollment?.progress as any)?.some(
                     (p: any) =>
                       (p.lesson?._id || p.lesson) === l._id && p.completed,
                   );

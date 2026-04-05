@@ -183,10 +183,10 @@ export default function Dashboard() {
                     <div className="aspect-video relative">
                       <img
                         src={
-                          enrollment.course.thumbnail ||
+                          enrollment.course?.thumbnail ||
                           "https://picsum.photos/seed/course/800/450"
                         }
-                        alt={enrollment.course.title}
+                        alt={enrollment.course?.title}
                         className="object-cover w-full h-full"
                         referrerPolicy="no-referrer"
                       />
@@ -196,10 +196,10 @@ export default function Dashboard() {
                     </div>
                     <CardHeader className="p-4">
                       <CardTitle className="text-lg line-clamp-1">
-                        {enrollment.course.title}
+                        {enrollment.course?.title}
                       </CardTitle>
                       <CardDescription>
-                        Category: {enrollment.course.category}
+                        Category: {enrollment.course?.category}
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="p-4 pt-0 space-y-4">
@@ -213,7 +213,7 @@ export default function Dashboard() {
                     </CardContent>
                     <CardFooter className="p-4 pt-0">
                       <Link
-                        to={`/courses/${enrollment.course._id}`}
+                        to={`/courses/${enrollment.course?._id}`}
                         className="w-full"
                       >
                         <Button variant="outline" className="w-full gap-2">
@@ -255,10 +255,10 @@ export default function Dashboard() {
                   <div className="aspect-video relative">
                     <img
                       src={
-                        enrollment.course.thumbnail ||
+                        enrollment.course?.thumbnail ||
                         "https://picsum.photos/seed/course/800/450"
                       }
-                      alt={enrollment.course.title}
+                      alt={enrollment.course?.title}
                       className="object-cover w-full h-full grayscale"
                       referrerPolicy="no-referrer"
                     />
@@ -268,10 +268,10 @@ export default function Dashboard() {
                   </div>
                   <CardHeader className="p-4">
                     <CardTitle className="text-lg line-clamp-1">
-                      {enrollment.course.title}
+                      {enrollment.course?.title}
                     </CardTitle>
                     <CardDescription>
-                      By {enrollment.course.instructor.name}
+                      By {enrollment.course?.instructor.name}
                     </CardDescription>
                   </CardHeader>
                   <CardFooter className="p-4 pt-0">

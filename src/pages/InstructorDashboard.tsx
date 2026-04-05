@@ -1,11 +1,20 @@
 import { useState, useEffect, useMemo } from "react";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
-  CardFooter,
 } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
@@ -32,18 +41,13 @@ import {
   DollarSign,
   Star,
   BookOpen,
-  MoreVertical,
   Edit,
   Trash2,
   BarChart3,
-  TrendingUp,
   Loader2,
-  ArrowRight,
-  PieChart as PieChartIcon,
-  Calendar,
+  Image as ImageIcon,
 } from "lucide-react";
 import api from "../lib/api";
-import { Course } from "../types";
 import { useAuthStore } from "../store/authStore";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -68,47 +72,140 @@ import {
   Area,
   BarChart,
   Bar,
-  Legend,
 } from "recharts";
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface DashboardCourse {
+  _id: string;
+  id: string;
+  title: string;
+  description: string;
+  thumbnail: string;
+  category: string;
+  instructor: string;
+  averageRating: number;
+  totalEnrollments: number;
+  ratings: unknown[];
+  lessons: unknown[];
+  createdAt: string;
+  updatedAt: string;
+  price?: number;
+}
+
+interface DashboardAnalytics {
+  totalStudents: number;
+  overallRating: number;
+}
+
+interface DashboardResponse {
+  success: boolean;
+  count: number;
+  analytics: DashboardAnalytics;
+  data: DashboardCourse[];
+}
+
+interface NewCourseState {
+  title: string;
+  description: string;
+  category: string;
+  thumbnail: File | null;
+}
+
+interface EditCourseState {
+  title: string;
+  description: string;
+  category: string;
+  thumbnail: File | null;
+}
+
+// ─── Reusable category select ─────────────────────────────────────────────────
+function CategorySelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger>
+        <SelectValue placeholder="Select category" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="web-development">Web Development</SelectItem>
+        <SelectItem value="mobile-development">Mobile Development</SelectItem>
+        <SelectItem value="data-science">Data Science</SelectItem>
+        <SelectItem value="devops">DevOps</SelectItem>
+        <SelectItem value="design">Design</SelectItem>
+        <SelectItem value="business">Business</SelectItem>
+        <SelectItem value="marketing">Marketing</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 function InstructorDashboard() {
   const { user } = useAuthStore();
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [courses, setCourses] = useState<DashboardCourse[]>([]);
+  const [analytics, setAnalytics] = useState<DashboardAnalytics>({
+    totalStudents: 0,
+    overallRating: 0,
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [timeRange, setTimeRange] = useState<"day" | "week" | "month">("month");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const [newCourse, setNewCourse] = useState({
+  // ── Edit dialog state ─────────────────────────────────────────────────────
+  const [editingCourse, setEditingCourse] = useState<DashboardCourse | null>(
+    null,
+  );
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [editForm, setEditForm] = useState<EditCourseState>({
     title: "",
     description: "",
-    category: "Web Development",
-    price: 0,
-    thumbnail: "",
+    category: "",
+    thumbnail: null,
   });
+  const [editThumbnailPreview, setEditThumbnailPreview] = useState<string>("");
 
+  // ── Create dialog state ───────────────────────────────────────────────────
+  const [newCourse, setNewCourse] = useState<NewCourseState>({
+    title: "",
+    description: "",
+    category: "web-development",
+    thumbnail: null,
+  });
+  const [thumbnailPreview, setThumbnailPreview] = useState<string>("");
+
+  // ─── Fetch dashboard ──────────────────────────────────────────────────────
   useEffect(() => {
-    const fetchInstructorData = async () => {
+    const fetchDashboard = async () => {
       setIsLoading(true);
       try {
-        const { data } = await api.get("/courses/instructor/my-courses");
-        setCourses(data.courses);
+        const { data } = await api.get<DashboardResponse>(
+          "/courses/instructor/dashboard",
+        );
+        setCourses(data.data);
+        setAnalytics(data.analytics);
       } catch (error) {
-        console.error("Failed to fetch instructor courses", error);
+        console.error("Failed to fetch instructor dashboard", error);
+        toast.error("Failed to load dashboard data");
       } finally {
         setIsLoading(false);
       }
     };
-
-    fetchInstructorData();
+    fetchDashboard();
   }, []);
 
-  // Mock analytics data based on timeRange
+  // ─── Mock analytics chart data ────────────────────────────────────────────
   const analyticsData = useMemo(() => {
     const points = timeRange === "day" ? 24 : timeRange === "week" ? 7 : 30;
     const label =
       timeRange === "day" ? "Hour" : timeRange === "week" ? "Day" : "Date";
-
     return Array.from({ length: points }).map((_, i) => ({
       name: `${label} ${i + 1}`,
       students: Math.floor(Math.random() * 50) + 10,
@@ -117,9 +214,7 @@ function InstructorDashboard() {
     }));
   }, [timeRange]);
 
-  const [thumbnailPreview, setThumbnailPreview] = useState<string>("");
-
-  // ─── handleThumbnailChange ────────────────────────────────────────────────
+  // ─── Thumbnail handlers ───────────────────────────────────────────────────
   const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -127,12 +222,71 @@ function InstructorDashboard() {
     setThumbnailPreview(URL.createObjectURL(file));
   };
 
-  // ─── handleCreateCourse ───────────────────────────────────────────────────
+  const handleEditThumbnailChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setEditForm((prev) => ({ ...prev, thumbnail: file }));
+    setEditThumbnailPreview(URL.createObjectURL(file));
+  };
+
+  // ─── Open edit dialog pre-filled with course data ─────────────────────────
+  const openEditDialog = (course: DashboardCourse) => {
+    setEditingCourse(course);
+    setEditForm({
+      title: course.title,
+      description: course.description,
+      category: course.category,
+      thumbnail: null,
+    });
+    setEditThumbnailPreview(course.thumbnail ?? "");
+    setIsEditOpen(true);
+  };
+
+  // ─── Submit edit — PUT /courses/:id with multipart/form-data ─────────────
+  const handleUpdateCourse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCourse) return;
+
+    setIsUpdating(true);
+    try {
+      const formData = new FormData();
+      formData.append("title", editForm.title);
+      formData.append("description", editForm.description);
+      formData.append("category", editForm.category);
+      // Only append thumbnail if the user chose a new file
+      if (editForm.thumbnail) {
+        formData.append("thumbnail", editForm.thumbnail);
+      }
+
+      const { data } = await api.put(
+        `/courses/${editingCourse._id}`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } },
+      );
+
+      // Merge updated fields returned by the controller (data.data)
+      const updated: DashboardCourse = { ...editingCourse, ...data.data };
+
+      setCourses((prev) =>
+        prev.map((c) => (c._id === updated._id ? updated : c)),
+      );
+      toast.success("Course updated successfully!");
+      setIsEditOpen(false);
+      setEditingCourse(null);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to update course");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // ─── Create course ────────────────────────────────────────────────────────
   const handleCreateCourse = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsCreating(true);
     try {
-      // API expects multipart/form-data because of the image upload
       const formData = new FormData();
       formData.append("title", newCourse.title);
       formData.append("description", newCourse.description);
@@ -145,8 +299,15 @@ function InstructorDashboard() {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      // API returns the new course inside data.data
-      setCourses((prev) => [data.data, ...prev]);
+      const created: DashboardCourse = {
+        ...data.data,
+        averageRating: data.data.averageRating ?? 0,
+        totalEnrollments: data.data.totalEnrollments ?? 0,
+        lessons: data.data.lessons ?? [],
+        ratings: data.data.ratings ?? [],
+      };
+
+      setCourses((prev) => [created, ...prev]);
       toast.success("Course created successfully!");
       setIsDialogOpen(false);
       setNewCourse({
@@ -163,6 +324,21 @@ function InstructorDashboard() {
     }
   };
 
+  // ─── Delete course ────────────────────────────────────────────────────────
+  const handleDeleteCourse = async (courseId: string) => {
+    setDeletingId(courseId);
+    try {
+      await api.delete(`/courses/${courseId}`);
+      setCourses((prev) => prev.filter((c) => c._id !== courseId));
+      toast.success("Course deleted successfully!");
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to delete course");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  // ─── Loading skeleton ─────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <div className="container mx-auto p-8 space-y-8">
@@ -177,21 +353,18 @@ function InstructorDashboard() {
     );
   }
 
-  const totalStudents = courses.reduce(
-    (acc, c) => acc + (c as any).studentsCount || 0,
-    0,
-  );
+  const totalCourses = courses.length;
+  const totalStudents = analytics.totalStudents;
+  const overallRating = analytics.overallRating;
   const totalRevenue = courses.reduce(
-    (acc, c) => acc + ((c as any).studentsCount || 0) * c.price,
+    (acc, c) => acc + (c.totalEnrollments ?? 0) * (c.price ?? 0),
     0,
   );
-  const avgRating =
-    courses.length > 0
-      ? courses.reduce((acc, c) => acc + c.rating, 0) / courses.length
-      : 0;
 
+  // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="space-y-10 pb-20">
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Instructor Dashboard</h1>
@@ -200,13 +373,13 @@ function InstructorDashboard() {
           </p>
         </div>
 
+        {/* ── Create Course Dialog ── */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2">
               <Plus className="h-4 w-4" /> Create New Course
             </Button>
           </DialogTrigger>
-
           <DialogContent className="sm:max-w-[500px]">
             <form onSubmit={handleCreateCourse}>
               <DialogHeader>
@@ -215,13 +388,11 @@ function InstructorDashboard() {
                   Fill in the details below to create your new course.
                 </DialogDescription>
               </DialogHeader>
-
               <div className="grid gap-4 py-4">
-                {/* Title */}
                 <div className="grid gap-2">
-                  <Label htmlFor="title">Course Title</Label>
+                  <Label htmlFor="create-title">Course Title</Label>
                   <Input
-                    id="title"
+                    id="create-title"
                     placeholder="e.g. Complete React Mastery"
                     required
                     value={newCourse.title}
@@ -233,12 +404,10 @@ function InstructorDashboard() {
                     }
                   />
                 </div>
-
-                {/* Description */}
                 <div className="grid gap-2">
-                  <Label htmlFor="description">Description</Label>
+                  <Label htmlFor="create-description">Description</Label>
                   <Textarea
-                    id="description"
+                    id="create-description"
                     placeholder="What will students learn?"
                     className="h-24"
                     required
@@ -251,41 +420,20 @@ function InstructorDashboard() {
                     }
                   />
                 </div>
-
-                {/* Category */}
                 <div className="grid gap-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Select
+                  <Label>Category</Label>
+                  <CategorySelect
                     value={newCourse.category}
-                    onValueChange={(v) =>
+                    onChange={(v) =>
                       setNewCourse((prev) => ({ ...prev, category: v }))
                     }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="web-development">
-                        Web Development
-                      </SelectItem>
-                      <SelectItem value="mobile-development">
-                        Mobile Development
-                      </SelectItem>
-                      <SelectItem value="data-science">Data Science</SelectItem>
-                      <SelectItem value="devops">DevOps</SelectItem>
-                      <SelectItem value="design">Design</SelectItem>
-                      <SelectItem value="business">Business</SelectItem>
-                      <SelectItem value="marketing">Marketing</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  />
                 </div>
-
-                {/* Thumbnail upload */}
                 <div className="grid gap-2">
-                  <Label htmlFor="thumbnail">Course Thumbnail</Label>
+                  <Label htmlFor="create-thumbnail">Course Thumbnail</Label>
                   <div className="flex items-center gap-3">
                     <label
-                      htmlFor="thumbnail"
+                      htmlFor="create-thumbnail"
                       className="flex items-center gap-2 cursor-pointer border border-dashed rounded-lg px-4 py-3 text-sm text-muted-foreground hover:bg-muted/50 transition-colors flex-1"
                     >
                       <ImageIcon className="h-4 w-4 shrink-0" />
@@ -293,7 +441,7 @@ function InstructorDashboard() {
                         ? newCourse.thumbnail.name
                         : "Click to upload image"}
                       <input
-                        id="thumbnail"
+                        id="create-thumbnail"
                         type="file"
                         accept="image/*"
                         className="hidden"
@@ -310,7 +458,6 @@ function InstructorDashboard() {
                   </div>
                 </div>
               </div>
-
               <DialogFooter>
                 <Button type="submit" disabled={isCreating} className="w-full">
                   {isCreating && (
@@ -323,6 +470,110 @@ function InstructorDashboard() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* ── Edit Course Dialog ── */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <form onSubmit={handleUpdateCourse}>
+            <DialogHeader>
+              <DialogTitle>Edit Course</DialogTitle>
+              <DialogDescription>
+                Update the details for{" "}
+                <span className="font-semibold">{editingCourse?.title}</span>.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-title">Course Title</Label>
+                <Input
+                  id="edit-title"
+                  placeholder="e.g. Complete React Mastery"
+                  required
+                  value={editForm.title}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({ ...prev, title: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-description">Description</Label>
+                <Textarea
+                  id="edit-description"
+                  placeholder="What will students learn?"
+                  className="h-24"
+                  required
+                  value={editForm.description}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Category</Label>
+                <CategorySelect
+                  value={editForm.category}
+                  onChange={(v) =>
+                    setEditForm((prev) => ({ ...prev, category: v }))
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-thumbnail">
+                  Thumbnail{" "}
+                  <span className="text-xs text-muted-foreground">
+                    (leave empty to keep current)
+                  </span>
+                </Label>
+                <div className="flex items-center gap-3">
+                  <label
+                    htmlFor="edit-thumbnail"
+                    className="flex items-center gap-2 cursor-pointer border border-dashed rounded-lg px-4 py-3 text-sm text-muted-foreground hover:bg-muted/50 transition-colors flex-1"
+                  >
+                    <ImageIcon className="h-4 w-4 shrink-0" />
+                    {editForm.thumbnail
+                      ? editForm.thumbnail.name
+                      : "Click to replace image"}
+                    <input
+                      id="edit-thumbnail"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleEditThumbnailChange}
+                    />
+                  </label>
+                  {editThumbnailPreview && (
+                    <img
+                      src={editThumbnailPreview}
+                      alt="Preview"
+                      className="h-14 w-20 object-cover rounded-lg border"
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsEditOpen(false)}
+                disabled={isUpdating}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isUpdating}>
+                {isUpdating && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -361,7 +612,9 @@ function InstructorDashboard() {
               <p className="text-sm font-medium text-muted-foreground">
                 Avg. Rating
               </p>
-              <p className="text-2xl font-bold">{avgRating.toFixed(1)}</p>
+              <p className="text-2xl font-bold">
+                {overallRating > 0 ? overallRating.toFixed(1) : "—"}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -374,18 +627,20 @@ function InstructorDashboard() {
               <p className="text-sm font-medium text-muted-foreground">
                 Total Courses
               </p>
-              <p className="text-2xl font-bold">{courses.length}</p>
+              <p className="text-2xl font-bold">{totalCourses}</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* Tabs */}
       <Tabs defaultValue="courses" className="w-full">
         <TabsList className="mb-6">
           <TabsTrigger value="courses">My Courses</TabsTrigger>
           <TabsTrigger value="stats">Analytics</TabsTrigger>
         </TabsList>
 
+        {/* ── Courses Tab ── */}
         <TabsContent value="courses">
           {courses.length > 0 ? (
             <div className="grid grid-cols-1 gap-4">
@@ -414,36 +669,52 @@ function InstructorDashboard() {
                             </span>
                           </div>
                           <h3 className="text-xl font-bold">{course.title}</h3>
+                          <p className="text-sm text-muted-foreground line-clamp-2">
+                            {course.description}
+                          </p>
                         </div>
-                        <div className="flex items-center gap-2">
+
+                        {/* ── Action Buttons ── */}
+                        <div className="flex items-center gap-2 ml-4 shrink-0">
                           <Link to={`/courses/${course._id}`}>
                             <Button variant="outline" size="sm">
                               View
                             </Button>
                           </Link>
+
+                          {/* Edit — opens pre-filled dialog, no route needed */}
                           <Button
                             variant="outline"
                             size="icon"
                             className="h-8 w-8"
+                            onClick={() => openEditDialog(course)}
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
+
+                          {/* Delete */}
                           <Button
                             variant="outline"
                             size="icon"
                             className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                            disabled={deletingId === course._id}
                             onClick={() => handleDeleteCourse(course._id)}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            {deletingId === course._id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
                           </Button>
                         </div>
                       </div>
 
+                      {/* Course stats */}
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
                         <div className="flex items-center gap-2 text-sm">
                           <Users className="h-4 w-4 text-muted-foreground" />
                           <span className="font-semibold">
-                            {(course as any).studentsCount || 0}
+                            {course.totalEnrollments ?? 0}
                           </span>
                           <span className="text-muted-foreground">
                             Students
@@ -452,20 +723,24 @@ function InstructorDashboard() {
                         <div className="flex items-center gap-2 text-sm">
                           <Star className="h-4 w-4 text-yellow-500 fill-current" />
                           <span className="font-semibold">
-                            {course.rating.toFixed(1)}
+                            {course.averageRating > 0
+                              ? course.averageRating.toFixed(1)
+                              : "—"}
                           </span>
                           <span className="text-muted-foreground">Rating</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                           <BookOpen className="h-4 w-4 text-muted-foreground" />
                           <span className="font-semibold">
-                            {course.lessonsCount}
+                            {course.lessons?.length ?? 0}
                           </span>
                           <span className="text-muted-foreground">Lessons</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                           <DollarSign className="h-4 w-4 text-green-500" />
-                          <span className="font-semibold">${course.price}</span>
+                          <span className="font-semibold">
+                            {course.price != null ? `$${course.price}` : "Free"}
+                          </span>
                           <span className="text-muted-foreground">Price</span>
                         </div>
                       </div>
@@ -495,6 +770,7 @@ function InstructorDashboard() {
           )}
         </TabsContent>
 
+        {/* ── Analytics Tab ── */}
         <TabsContent value="stats" className="space-y-6">
           {courses.length > 0 ? (
             <>
