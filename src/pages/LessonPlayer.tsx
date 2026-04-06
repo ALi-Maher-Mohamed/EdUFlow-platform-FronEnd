@@ -155,15 +155,23 @@ export default function LessonPlayer() {
         text: newComment,
       });
 
+      // التأكد من وجود lessonId
+      const lessonId = lesson?._id;
+      if (!lessonId) {
+        toast.error("Lesson not found");
+        return;
+      }
+
       // Build a safe comment object using the API response + current user fallback
-      const addedComment = {
+      const addedComment: Comment = {
         _id: data.comment?._id ?? data._id ?? crypto.randomUUID(),
         text: data.comment?.text ?? newComment,
         createdAt: data.comment?.createdAt ?? new Date().toISOString(),
+        lessonId: lessonId, // ✅ الآن هو string مؤكد مش undefined
         user: data.comment?.user ?? {
-          _id: user?._id,
+          _id: user?._id ?? "temp-id",
           name: user?.name ?? "You",
-          avatar: user?.avatar ?? "",
+          profileImage: user?.profileImage ?? null, // ✅ استخدم profileImage بدل avatar
         },
       };
 
@@ -292,7 +300,7 @@ export default function LessonPlayer() {
               {/* New comment input */}
               <div className="flex gap-4">
                 <Avatar className="h-10 w-10 border">
-                  <AvatarImage src={user?.avatar} />
+                  <AvatarImage src={user?.profileImage ?? user?.avatar} />
                   <AvatarFallback>
                     {user?.name?.charAt(0)?.toUpperCase() ?? "?"}
                   </AvatarFallback>
@@ -329,7 +337,7 @@ export default function LessonPlayer() {
                 ) : (
                   comments.map((comment) => {
                     const userName = comment?.user?.name ?? "Unknown";
-                    const userAvatar = comment?.user?.avatar ?? "";
+
                     const commentDate = comment?.createdAt
                       ? formatDistanceToNow(new Date(comment.createdAt)) +
                         " ago"
@@ -338,7 +346,9 @@ export default function LessonPlayer() {
                     return (
                       <div key={comment._id} className="flex gap-4">
                         <Avatar className="h-10 w-10 border">
-                          <AvatarImage src={userAvatar} />
+                          <AvatarImage
+                            src={user?.profileImage ?? user?.avatar}
+                          />
                           <AvatarFallback>
                             {userName.charAt(0).toUpperCase()}
                           </AvatarFallback>
@@ -372,6 +382,12 @@ export default function LessonPlayer() {
                 <Separator />
                 <div className="flex items-center gap-4">
                   <Avatar className="h-12 w-12">
+                    <AvatarImage
+                      src={
+                        course.instructor.profileImage ||
+                        course.instructor.avatar
+                      }
+                    />
                     <AvatarFallback className="bg-primary/10 text-primary font-bold">
                       {course.instructor.name.charAt(0)}
                     </AvatarFallback>
@@ -401,8 +417,7 @@ export default function LessonPlayer() {
                 <span>
                   {lessons.length > 0 && enrollment?.progress
                     ? Math.round(
-                        (enrollment.progress.filter((p: any) => p.completed)
-                          .length /
+                        ((enrollment?.completedLessons?.length || 0) /
                           lessons.length) *
                           100,
                       )

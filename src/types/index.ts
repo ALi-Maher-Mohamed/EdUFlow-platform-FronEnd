@@ -46,10 +46,14 @@ export interface Enrollment {
 
 export interface Comment {
   _id: string;
-  lessonId: string;
-  user: User;
   text: string;
   createdAt: string;
+  lessonId: string; // ✅ لازم يكون string مش optional
+  user: {
+    _id: string;
+    name: string;
+    profileImage?: string | null; // ✅ استخدم profileImage
+  };
 }
 
 export interface AuthResponse {

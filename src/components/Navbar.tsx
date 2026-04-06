@@ -101,19 +101,20 @@ export default function Navbar() {
               </Link>
 
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="relative h-8 w-8 rounded-full"
-                  >
-                    <Avatar className="h-8 w-8 border">
-                      {/* ✅ تعديل 1: avatar → profileImage */}
-                      <AvatarImage src={user?.profileImage || undefined} />
-                      <AvatarFallback>
-                        {user?.name ? getInitials(user.name) : "U"}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
+                <DropdownMenuTrigger>
+                  <span>
+                    <Button
+                      variant="ghost"
+                      className="relative h-8 w-8 rounded-full"
+                    >
+                      <Avatar className="h-8 w-8 border">
+                        <AvatarImage src={user?.profileImage || undefined} />
+                        <AvatarFallback>
+                          {user?.name ? getInitials(user.name) : "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </span>
                 </DropdownMenuTrigger>
 
                 <DropdownMenuContent align="end" className="w-56">

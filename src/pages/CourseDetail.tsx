@@ -48,6 +48,8 @@ import api from "../lib/api";
 import { Course, Enrollment, Lesson } from "../types";
 import { useAuthStore } from "../store/authStore";
 import { toast } from "sonner";
+import { AvatarImage } from "../../components/ui/avatar";
+import { Avatar, AvatarFallback } from "../../components/ui/avatar";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORY_LABELS: Record<string, string> = {
@@ -130,19 +132,23 @@ export default function CourseDetail() {
         const lessonCount = fetchedCourse?.lessons?.length ?? 0;
         setNewLesson((prev) => ({ ...prev, order: lessonCount + 1 }));
 
-        if (isAuthenticated) {
+        // ✅ فقط لو المستخدم طالب ومسجل دخول، نجيب الـ enrollments
+        if (isAuthenticated && user?.role === "student") {
           try {
             const enrollmentRes = await api.get(
-              `/enrollments/my?page=1&limit=100`,
+              `/enrollments/my?page=1&limit=10`,
             );
             const enrollments: Enrollment[] = enrollmentRes.data?.data ?? [];
             const found = enrollments.find(
               (e: any) => (e.course?._id ?? e.course) === id,
             );
             setEnrollment(found ?? null);
-          } catch {
+          } catch (error) {
+            console.error("Failed to fetch enrollments", error);
             setEnrollment(null);
           }
+        } else {
+          setEnrollment(null);
         }
       } catch (error) {
         console.error("Failed to fetch course details", error);
@@ -154,8 +160,7 @@ export default function CourseDetail() {
     };
 
     fetchCourseData();
-  }, [id, isAuthenticated, navigate]);
-
+  }, [id, isAuthenticated, navigate, user?.role]); // ✅ أضف user?.role للـ dependencies
   // ─── Enroll ───────────────────────────────────────────────────────────────
   const handleEnroll = async () => {
     if (!isAuthenticated) {
@@ -248,8 +253,7 @@ export default function CourseDetail() {
 
   // True only when the logged-in user is the instructor who published this course
   const isOwnerInstructor =
-    user?.role === "instructor" &&
-    (course.instructor?._id === user._id || course.instructor === user._id);
+    user?.role === "instructor" && course.instructor?._id === user._id;
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
@@ -372,7 +376,7 @@ export default function CourseDetail() {
                       open={isAddLessonOpen}
                       onOpenChange={setIsAddLessonOpen}
                     >
-                      <DialogTrigger asChild>
+                      <DialogTrigger>
                         <Button size="sm" className="gap-2">
                           <Plus className="h-4 w-4" /> Add Lesson
                         </Button>
@@ -639,9 +643,12 @@ export default function CourseDetail() {
             <TabsContent value="instructor" className="pt-6">
               <Card className="bg-muted/30 border-none">
                 <CardContent className="p-6 flex items-start gap-6">
-                  <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center text-primary text-3xl font-bold shrink-0">
-                    {course.instructor?.name?.charAt(0).toUpperCase() ?? "I"}
-                  </div>
+                  <Avatar className="h-10 w-10 border">
+                    <AvatarImage src={user?.profileImage ?? user?.avatar} />
+                    <AvatarFallback>
+                      {user?.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
                   <div className="space-y-2">
                     <h4 className="text-xl font-bold">
                       {course.instructor?.name}
@@ -707,21 +714,16 @@ export default function CourseDetail() {
             <CardContent className="space-y-4">
               {/* CTA button: varies by role */}
               {isOwnerInstructor ? (
-                // Owner instructor → go directly to first lesson to manage
-                <Link
-                  to={lessons[0]?._id ? `/lessons/${lessons[0]._id}` : "#"}
-                  className="block w-full"
-                >
-                  <Button
-                    className="w-full h-12 text-lg font-bold"
-                    variant="secondary"
-                    disabled={lessons.length === 0}
+                // Owner instructor → show add lesson message if no lessons
+                lessons.length === 0 ? (
+                  <div
+                    className="w-full h-12 text-lg font-medium text-muted-foreground bg-muted/30 rounded-lg flex items-center justify-center gap-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => setIsAddLessonOpen(true)}
                   >
-                    {lessons.length === 0
-                      ? "Add lessons to start"
-                      : "Manage Course"}
-                  </Button>
-                </Link>
+                    <Plus className="h-5 w-5" />
+                    Add lessons to start
+                  </div>
+                ) : null // ✅ لا يعرض أي شيء إذا كان هناك دروس
               ) : enrollment ? (
                 <Link
                   to={`/lessons/${lessons[0]?._id}`}
