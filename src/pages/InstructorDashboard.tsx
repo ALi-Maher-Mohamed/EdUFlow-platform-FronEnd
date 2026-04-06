@@ -1,15 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+
 import {
   Card,
   CardContent,
@@ -375,7 +365,7 @@ function InstructorDashboard() {
 
         {/* ── Create Course Dialog ── */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
+          <DialogTrigger>
             <Button className="gap-2">
               <Plus className="h-4 w-4" /> Create New Course
             </Button>

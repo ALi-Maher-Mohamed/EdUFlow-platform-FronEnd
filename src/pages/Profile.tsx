@@ -176,8 +176,8 @@ export default function Profile() {
 
   // Format join date (from createdAt if available)
   const getJoinDate = () => {
-    if (user?.createdAt) {
-      return new Date(user.createdAt).getFullYear();
+    if (user) {
+      return new Date().getFullYear();
     }
     return new Date().getFullYear();
   };
@@ -368,7 +368,7 @@ export default function Profile() {
             open={isDeleteDialogOpen}
             onOpenChange={setIsDeleteDialogOpen}
           >
-            <DialogTrigger asChild>
+            <DialogTrigger>
               <Button variant="destructive">Delete Account</Button>
             </DialogTrigger>
             <DialogContent>
