@@ -644,7 +644,12 @@ export default function CourseDetail() {
               <Card className="bg-muted/30 border-none">
                 <CardContent className="p-6 flex items-start gap-6">
                   <Avatar className="h-10 w-10 border">
-                    <AvatarImage src={user?.profileImage ?? user?.avatar} />
+                    <AvatarImage
+                      src={
+                        course.instructor?.profileImage ??
+                        course.instructor?.avatar
+                      }
+                    />
                     <AvatarFallback>
                       {user?.name.charAt(0).toUpperCase()}
                     </AvatarFallback>

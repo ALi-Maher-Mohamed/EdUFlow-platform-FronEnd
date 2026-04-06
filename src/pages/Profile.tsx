@@ -37,6 +37,7 @@ import {
   Upload,
   Trash2,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function Profile() {
   const { user, updateUser, token } = useAuthStore();
@@ -155,17 +156,24 @@ export default function Profile() {
       setIsLoading(false);
     }
   };
-
+  const navigate = useNavigate();
+  const { logout } = useAuthStore();
   // Delete account
   const handleDeleteAccount = async () => {
     setIsLoading(true);
     try {
       await api.delete("/auth/profile");
+
+      // ✅ 1. أولاً: logout (تمسح الـ state والـ localStorage)
+      logout();
+
+      // ✅ 2. ثانياً: رسالة النجاح
       toast.success("Account deleted successfully");
-      // Logout and redirect to home
+
+      // ✅ 3. ثالثاً: انتظر شوية ثم redirect
       setTimeout(() => {
-        window.location.href = "/";
-      }, 1500);
+        navigate("/");
+      }, 500);
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to delete account");
       setIsDeleteDialogOpen(false);

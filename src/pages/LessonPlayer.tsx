@@ -95,12 +95,21 @@ export default function LessonPlayer() {
         setEnrollment(currentEnrollment);
 
         // 3. تحديث التقدم (Mark as Completed) تلقائياً عند فتح الدرس
+
         if (currentEnrollment && id) {
-          const isAlreadyCompleted = currentEnrollment.progress?.some(
-            (p: any) => (p.lesson?._id || p.lesson) === id && p.completed,
+          // ✅ تأكد من هيكل الـ progress
+          const progressArray = currentEnrollment.progress || [];
+          const isAlreadyCompleted = progressArray.some(
+            (p: any) =>
+              (p.lesson?._id || p.lesson) === id && p.completed === true,
           );
 
-          if (!isAlreadyCompleted && id) {
+          console.log("Lesson completed status:", {
+            isAlreadyCompleted,
+            lessonId: id,
+          });
+
+          if (!isAlreadyCompleted) {
             try {
               const { data: updateRes } = await api.patch(
                 `/enrollments/${currentEnrollment._id}/progress`,
@@ -113,6 +122,7 @@ export default function LessonPlayer() {
               if (updateRes.success) {
                 // تحديث الـ state بالبيانات الجديدة
                 setEnrollment(updateRes.data);
+                console.log("Auto-progress updated successfully");
               }
             } catch (err) {
               console.error("Failed to update progress", err);
@@ -131,15 +141,25 @@ export default function LessonPlayer() {
   }, [id, navigate]);
 
   const handleNavigation = async (targetLessonId: string) => {
-    // قبل الانتقال، نتأكد من حفظ تقدم الدرس الحالي
+    // ✅ قبل الانتقال، نتأكد من حفظ تقدم الدرس الحالي
     if (enrollment?._id && id) {
       try {
-        await api.patch(`/enrollments/${enrollment._id}/progress`, {
-          lessonId: id,
-          completed: true,
-        });
+        console.log("Updating progress for lesson:", id);
+        const { data } = await api.patch(
+          `/enrollments/${enrollment._id}/progress`,
+          {
+            lessonId: id,
+            completed: true,
+          },
+        );
+        console.log("Progress updated:", data);
+
+        // ✅ تحديث الـ enrollment في الـ state
+        if (data.success && data.data) {
+          setEnrollment(data.data);
+        }
       } catch (err) {
-        console.error("Silent failed to update progress on navigation");
+        console.error("Failed to update progress on navigation:", err);
       }
     }
     // الانتقال للدرس التالي أو السابق
@@ -411,28 +431,34 @@ export default function LessonPlayer() {
               <CardTitle className="text-lg">Course Content</CardTitle>
               <div className="flex items-center justify-between text-xs text-muted-foreground mt-2">
                 <span>
-                  {enrollment?.completedLessons?.length} / {lessons.length}{" "}
-                  completed
+                  {enrollment?.progress?.filter(
+                    (p: any) => p.completed === true,
+                  ).length || 0}{" "}
+                  / {lessons.length} completed
                 </span>
                 <span>
-                  {lessons.length > 0 && enrollment?.progress
+                  {lessons.length > 0
                     ? Math.round(
-                        ((enrollment?.completedLessons?.length || 0) /
+                        ((enrollment?.progress?.filter(
+                          (p: any) => p.completed === true,
+                        ).length || 0) /
                           lessons.length) *
                           100,
                       )
                     : 0}
                   %
-                </span>{" "}
+                </span>
               </div>
             </CardHeader>
             <ScrollArea className="flex-1">
               <div className="p-0">
                 {lessons.map((l, index) => {
-                  const isCompleted = (enrollment?.progress as any)?.some(
-                    (p: any) =>
-                      (p.lesson?._id || p.lesson) === l._id && p.completed,
-                  );
+                  const isCompleted =
+                    enrollment?.progress?.some(
+                      (p: any) =>
+                        (p.lesson?._id || p.lesson) === l._id &&
+                        p.completed === true,
+                    ) || false;
                   const isActive = l._id === id;
                   return (
                     <Link
