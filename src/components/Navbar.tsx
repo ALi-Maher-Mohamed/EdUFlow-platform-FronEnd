@@ -5,12 +5,11 @@ import {
   BookOpen,
   LayoutDashboard,
   LogOut,
-  Search,
-  User as UserIcon,
   Moon,
   Sun,
   Menu,
   X,
+  User as UserIcon,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import {
@@ -27,7 +26,6 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "../../components/ui/avatar";
-import { Input } from "../../components/ui/input";
 
 export default function Navbar() {
   const { user, logout, isAuthenticated } = useAuthStore();
@@ -46,6 +44,16 @@ export default function Navbar() {
   const handleLogout = () => {
     logout();
     navigate("/auth");
+  };
+
+  // Get initials from name (supports 2 letters)
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   return (
@@ -93,22 +101,22 @@ export default function Navbar() {
               </Link>
 
               <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      className="relative h-8 w-8 rounded-full"
-                    >
-                      <Avatar className="h-8 w-8 border">
-                        <AvatarImage src={user?.avatar} alt={user?.name} />
-                        <AvatarFallback>{user?.name?.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                    </Button>
-                  }
-                />
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="relative h-8 w-8 rounded-full"
+                  >
+                    <Avatar className="h-8 w-8 border">
+                      {/* ✅ تعديل 1: avatar → profileImage */}
+                      <AvatarImage src={user?.profileImage || undefined} />
+                      <AvatarFallback>
+                        {user?.name ? getInitials(user.name) : "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
 
                 <DropdownMenuContent align="end" className="w-56">
-                  {/* ✅ لازم Group */}
                   <DropdownMenuGroup>
                     <DropdownMenuLabel>
                       <div className="flex flex-col space-y-1">
@@ -124,7 +132,6 @@ export default function Navbar() {
 
                   <DropdownMenuSeparator />
 
-                  {/* ممكن Group تاني أو عادي */}
                   <DropdownMenuGroup>
                     <DropdownMenuItem onClick={() => navigate("/profile")}>
                       <UserIcon className="mr-2 h-4 w-4" />
@@ -200,6 +207,13 @@ export default function Navbar() {
                 onClick={() => setIsMenuOpen(false)}
               >
                 Dashboard
+              </Link>
+              <Link
+                to="/profile"
+                className="block text-sm font-medium py-2"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Profile
               </Link>
               <Button
                 variant="destructive"

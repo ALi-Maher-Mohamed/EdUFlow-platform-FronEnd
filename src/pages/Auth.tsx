@@ -27,7 +27,7 @@ import {
 import { useAuthStore } from "../store/authStore";
 import api from "../lib/api";
 import { toast } from "sonner";
-import { Loader2, Mail, Lock, User as UserIcon } from "lucide-react";
+import { Loader2, Mail, Lock, User as UserIcon, Camera, X } from "lucide-react";
 
 export default function Auth() {
   const [searchParams] = useSearchParams();
@@ -48,11 +48,52 @@ export default function Auth() {
     role: "student" as "student" | "instructor",
   });
 
+  // Profile image state
+  const [profileImage, setProfileImage] = useState<File | null>(null);
+  const [profilePreview, setProfilePreview] = useState<string>("");
+
   useEffect(() => {
     if (isAuthenticated) {
       navigate("/dashboard");
     }
   }, [isAuthenticated, navigate]);
+
+  // Cleanup preview URL on unmount
+  useEffect(() => {
+    return () => {
+      if (profilePreview) {
+        URL.revokeObjectURL(profilePreview);
+      }
+    };
+  }, [profilePreview]);
+
+  const handleProfileImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload an image file");
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Image size must be less than 2MB");
+      return;
+    }
+
+    setProfileImage(file);
+    setProfilePreview(URL.createObjectURL(file));
+  };
+
+  const removeProfileImage = () => {
+    setProfileImage(null);
+    if (profilePreview) {
+      URL.revokeObjectURL(profilePreview);
+      setProfilePreview("");
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,7 +114,18 @@ export default function Auth() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const { data } = await api.post("/auth/register", registerData);
+      const formData = new FormData();
+      formData.append("name", registerData.name);
+      formData.append("email", registerData.email);
+      formData.append("password", registerData.password);
+      formData.append("role", registerData.role);
+      if (profileImage) {
+        formData.append("profileImage", profileImage);
+      }
+
+      const { data } = await api.post("/auth/register", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
       setAuth(data.user, data.token);
       toast.success("Account created successfully!");
       navigate(data.user.role === "instructor" ? "/instructor" : "/dashboard");
@@ -152,6 +204,49 @@ export default function Auth() {
           <TabsContent value="register">
             <form onSubmit={handleRegister}>
               <CardContent className="space-y-4">
+                {/* Profile Image Upload */}
+                <div className="space-y-2">
+                  <Label>Profile Picture (Optional)</Label>
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="relative">
+                      <div className="w-24 h-24 rounded-full bg-muted overflow-hidden flex items-center justify-center border-2 border-dashed border-muted-foreground/30">
+                        {profilePreview ? (
+                          <img
+                            src={profilePreview}
+                            alt="Profile preview"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <Camera className="h-8 w-8 text-muted-foreground" />
+                        )}
+                      </div>
+                      {profilePreview && (
+                        <button
+                          type="button"
+                          onClick={removeProfileImage}
+                          className="absolute -top-1 -right-1 p-1 bg-destructive text-white rounded-full hover:bg-destructive/90 transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                    <label className="cursor-pointer">
+                      <span className="text-sm text-primary hover:underline">
+                        {profileImage ? "Change photo" : "Upload photo"}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleProfileImageChange}
+                      />
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                      Max 2MB. JPG, PNG or WebP
+                    </p>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="reg-name">Full Name</Label>
                   <div className="relative">

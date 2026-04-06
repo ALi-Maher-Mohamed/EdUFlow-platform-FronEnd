@@ -1,6 +1,6 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { User } from '../types';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import { User } from "../types";
 
 interface AuthState {
   user: User | null;
@@ -8,7 +8,7 @@ interface AuthState {
   isAuthenticated: boolean;
   setAuth: (user: User, token: string) => void;
   logout: () => void;
-  updateUser: (user: User) => void;
+  updateUser: (userData: Partial<User>) => void; // تغيير الـ type لـ Partial
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -19,10 +19,14 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       setAuth: (user, token) => set({ user, token, isAuthenticated: true }),
       logout: () => set({ user: null, token: null, isAuthenticated: false }),
-      updateUser: (user) => set({ user }),
+      // ✅ التعديل هنا - دمج البيانات بدل استبدالها
+      updateUser: (userData) =>
+        set((state) => ({
+          user: state.user ? { ...state.user, ...userData } : null,
+        })),
     }),
     {
-      name: 'eduflow-auth',
-    }
-  )
+      name: "eduflow-auth",
+    },
+  ),
 );
