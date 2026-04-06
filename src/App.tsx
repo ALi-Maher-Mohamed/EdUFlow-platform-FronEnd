@@ -3,6 +3,7 @@ import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { Suspense, lazy } from "react";
 import { Skeleton } from "../components/ui/skeleton";
+import VerifyEmail from "./pages/VerifyEmail"; // ✅ أضف هذا الاستيراد
 
 // Lazy load pages
 const Home = lazy(() => import("./pages/Home"));
@@ -35,9 +36,9 @@ export default function App() {
           <Route element={<Layout />}>
             <Route index element={<Home />} />
             <Route path="auth" element={<Auth />} />
+            <Route path="verify-email" element={<VerifyEmail />} />{" "}
             <Route path="courses" element={<Courses />} />
             <Route path="courses/:id" element={<CourseDetail />} />
-
             {/* Student Routes */}
             <Route
               path="dashboard"
@@ -55,7 +56,6 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
-
             {/* Instructor Routes */}
             <Route
               path="instructor"
@@ -65,7 +65,6 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
-
             {/* Common Protected Routes */}
             <Route
               path="profile"

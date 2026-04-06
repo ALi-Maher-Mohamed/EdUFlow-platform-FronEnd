@@ -2,7 +2,7 @@ import axios from "axios";
 import { useAuthStore } from "../store/authStore";
 
 const API_URL =
-  (process.env.VITE_API_URL as string) || "http://localhost:5500/api";
+  (process.env.VITE_API_URL as string) || "https://eduflow-dun.vercel.app//api";
 
 const api = axios.create({
   baseURL: API_URL,

@@ -91,7 +91,7 @@ export default function Courses() {
       !search ||
       course.title.toLowerCase().includes(search.toLowerCase()) ||
       course.description.toLowerCase().includes(search.toLowerCase()) ||
-      course.instructor.name.toLowerCase().includes(search.toLowerCase());
+      course.instructor?.name.toLowerCase().includes(search.toLowerCase());
 
     const matchesCategory = category === "all" || course.category === category;
 
@@ -112,7 +112,10 @@ export default function Courses() {
       setIsLoading(true);
       try {
         const { data } = await api.get(`/courses?page=1&limit=10&sort=newest`);
+        //fronted       https://eduflow-dun.vercel.app//api/courses?page=1&limit=10&sort=newest
+        // postman       https://eduflow-dun.vercel.app//api/courses?page=1&limit=10&sort=newest
         setCourses(data.data);
+        console.log(data.data);
       } catch (error) {
         console.error("Failed to fetch courses", error);
       } finally {
@@ -212,7 +215,7 @@ export default function Courses() {
                 <CardHeader className="p-4 pb-2">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
                     <UserIcon className="h-3 w-3 shrink-0" />
-                    <span className="truncate">{course.instructor.name}</span>
+                    <span className="truncate">{course.instructor?.name}</span>
                   </div>
                   <CardTitle className="text-base line-clamp-2 leading-snug">
                     {course.title}
